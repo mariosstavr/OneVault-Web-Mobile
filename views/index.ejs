@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyStirixis</title>
+</head>
+<style>
+    .lamp-emoji {
+            font-size: 48px; /* Adjust size as needed */
+            display: block;
+            text-align: center; /* Center the emoji */
+        }
+        .emoji-container {
+            font-size: 48px; /* Adjust size as needed */
+            text-align: center;
+        }
+</style>
+<body>
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+    <div class="menu">
+        <ul>
+            <br>
+            <br>
+            <br>
+            <br>
+            <li><a href="/payroll">Μισθοδοσία</a></li>
+            <li><a href="/invoice">Παραστατικά</a></li>
+            <li><a href="/contact">Επικοινωνία</a></li>
+            <li><a href="/logout" class="logout-button">Logout</a></li>
+        </ul>
+    </div>
+    <br>
+    <br>
+    <div class="logo-container">
+        <a href="/index">
+            <img src="STIRIXIS.png" alt="Logo" class="logo">
+        </a>
+    </div>
+    <br>
+    <h1 class="welcome-message">Καλώς ήρθατε στο MyStirixis app <%= vat %></h1>
+    <div class="centered-text">
+        Η<b> ΣΤΗΡΙΞΙΣ  Α.Ε.</b> είναι μια αναπτυσσόμενη εταιρία που δραστηριοποιείται από το 1986 στους τομείς παροχής λογιστικών,<br>
+         φορολογικών και εργατικών υπηρεσιών και από το 2004 στους τομείς της πληροφορικής. Τα προϊόντα και τις υπηρεσίες<br> 
+         μας εμπιστεύονται σήμερα πλήθος επαγγελματιών του ευρύτερου οικονομικού χώρου , όπως και ιδιώτες. Το βασικό συστατικό<br> 
+         της επιτυχίας και ο πολυτιμότερος παράγοντας ανάπτυξης της εταιρίας μας είναι τόσο το ανθρώπινο δυναμικό μας όσο και <br>
+         η σχέση μας με τις συνεργαζόμενες επιχειρήσεις (πελάτες).
+
+        </div>
+        <div class="lamp-emoji">💡<br></div>
+        <div class="centered-text"><i><b>Εμείς Καινοτομούμε</b></i><br>
+            Καινοτομούμε συστηματικά,
+            συνεχώς και με επιτυχία.
+        </div>
+        <div class="emoji-container">
+            📈 <!-- Growth chart arrow emoji -->
+        </div>
+        <div class="centered-text">
+        <i><b>Υψηλή Απόδοση</b></i><br>
+Εξειδικευόμαστε στην επίλυση προβλημάτων
+και την οικοδόμηση των επιχειρήσεων.
+        </div>
+        
+    <script>
+    
+        let logoutTimer;
+
+        function startLogoutTimer() {
+            logoutTimer = setTimeout(logout, 5 * 60 * 1000); // 5 minutes
+        }
+
+        function resetLogoutTimer() {
+            clearTimeout(logoutTimer);
+            startLogoutTimer();
+        }
+
+        function logout() {
+            // Perform logout actions, such as redirecting to the logout endpoint
+            window.location.href = '/logout';
+        }
+
+        // Reset timer on user activity
+        document.addEventListener('mousemove', resetLogoutTimer);
+        document.addEventListener('keypress', resetLogoutTimer);
+
+        // Start the initial timer
+        startLogoutTimer();
+
+        function toggleMenu() {
+            const menu = document.querySelector('.menu');
+            menu.classList.toggle('open');
+        }
+    </script>
+</body>
+</html>

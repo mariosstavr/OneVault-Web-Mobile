@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Αποστολή Παραστατικών</title>
+    <script async src="https://docs.opencv.org/master/opencv.js"></script>
+</head>
+<body>
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+    <div class="menu">
+        <ul>
+            <br><br><br><br>
+            <li><a href="/index">Αρχική</a></li>
+            <li><a href="/payroll">Μισθοδοσία</a></li>
+            <li><a href="/invoice">Παραστατικά</a></li>
+            <li><a href="/contact">Επικοινωνία</a></li>
+            <li><a href="/logout" class="logout-button">Logout</a></li>
+        </ul>
+    </div>
+    <br><br>
+    <div class="logo-container">
+        <a href="/index">
+            <img src="STIRIXIS.png" alt="Logo" class="logo">
+        </a>
+    </div>
+    <br>
+    <h2>Αποστολή Παραστατικών</h2>
+    <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="files" style="display: none;" onchange="displayFilePreviews(event)" multiple>
+        <button type="button" onclick="document.getElementById('fileInput').click();">Επιλογή Παραστατικών από συσκευή</button>
+        <div id="selectedFilePreviews" class="file-preview-container"></div>
+        <br><br>
+        <button type="button" id="cameraButton" onclick="toggleCamera()">📷 Κάμερα</button>
+        <div id="videoContainer" style="display: none;">
+            <video id="video" autoplay></video>
+            <div class="frame" id="frame"></div>
+        </div>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <button type="button" id="takePhotoButton" style="display:none;" onclick="takePhoto()">Λήψη Φωτογραφίας</button>
+        <button type="button" id="reloadCameraButton" style="display:none;" onclick="reloadCamera()">⭮</button>
+        <img id="photoPreview" style="display: none;">
+        <br><br>
+        <div id="thumbnailContainer" class="thumbnail-container"></div> <!-- New thumbnail container -->
+        <br><br>
+        <button type="button" onclick="submitForm()">Αποστολή</button>
+        <br>
+        <div id="errorMessage" style="display: none; color: red;">Επιλέξτε παραστατικά για να συνεχίσετε</div>
+        <br><br>
+    </form>
+    <!-- Modal for file previews -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <img id="modalImage" src="" alt="File preview" style="display: none;" class="preview-img">
+            <embed id="modalPdf" src="" width="100%" height="1000px" style="display: none;" class="preview-pdf"></embed>
+        </div>
+    </div>
+    <script>
+        const selectedFiles = [];
+
+        function displayFilePreviews(event) {
+            const fileInput = event.target;
+            const selectedFilePreviews = document.getElementById('selectedFilePreviews');
+
+            for (const file of fileInput.files) {
+                selectedFiles.push(file);
+
+                const filePreview = document.createElement('div');
+                filePreview.classList.add('file-preview');
+
+                const fileNameElement = document.createElement('span');
+                fileNameElement.textContent = file.name;
+                fileNameElement.classList.add('file-name');
+
+                const removeButton = document.createElement('button');
+                removeButton.classList.add('remove-file');
+                removeButton.innerHTML = '&minus;';
+                removeButton.onclick = () => removeFile(file, filePreview);
+
+                const previewElement = document.createElement('div');
+                previewElement.classList.add('preview-element');
+                
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    img.alt = file.name;
+                    img.classList.add('preview-img');
+                    img.onclick = () => previewFile(file);
+                    previewElement.appendChild(img);
+                } else if (file.type === 'application/pdf') {
+                    const pdfIcon = document.createElement('div');
+                    pdfIcon.textContent = 'PDF';
+                    pdfIcon.classList.add('pdf-icon');
+                    pdfIcon.onclick = () => previewFile(file);
+                    previewElement.appendChild(pdfIcon);
+                } else {
+                    const defaultPreview = document.createElement('div');
+                    defaultPreview.textContent = 'Unsupported file type';
+                    previewElement.appendChild(defaultPreview);
+                }
+
+                const removeButtonContainer = document.createElement('div');
+                removeButtonContainer.classList.add('remove-button-container');
+                removeButtonContainer.appendChild(removeButton);
+                filePreview.appendChild(removeButtonContainer);
+
+                filePreview.appendChild(previewElement);
+                filePreview.appendChild(fileNameElement);
+                selectedFilePreviews.appendChild(filePreview);
+            }
+            updateFileInput();
+        }
+
+        function removeFile(file, filePreview) {
+            const index = selectedFiles.indexOf(file);
+            if (index !== -1) {
+                selectedFiles.splice(index, 1);
+            }
+            filePreview.remove();
+            updateFileInput();
+        }
+
+        function updateFileInput() {
+            const dataTransfer = new DataTransfer();
+            selectedFiles.forEach(file => {
+                dataTransfer.items.add(file);
+            });
+            const fileInput = document.getElementById('fileInput');
+            fileInput.files = dataTransfer.files;
+        }
+
+        function previewFile(file) {
+            const modal = document.getElementById('modal');
+            const modalImage = document.getElementById('modalImage');
+            const modalPdf = document.getElementById('modalPdf');
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const fileType = file.type;
+
+                if (fileType.startsWith('image/')) {
+                    modalPdf.style.display = 'none';
+                    modalImage.src = e.target.result;
+                    modalImage.style.display = 'block';
+                } else if (fileType === 'application/pdf') {
+                    modalImage.style.display = 'none';
+                    modalPdf.src = URL.createObjectURL(file);
+                    modalPdf.style.display = 'block';
+                } else {
+                    alert('Unsupported file type');
+                    return;
+                }
+                
+                modal.style.display = 'block';
+            }
+
+            reader.readAsDataURL(file);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        let currentCamera = 'environment';
+        let cameraOpen = false;
+        let videoStream;
+
+        function toggleCamera() {
+            if (cameraOpen) {
+                closeCamera();
+            } else {
+                openCamera();
+            }
+        }
+
+        function toggleMenu() {
+            const menu = document.querySelector('.menu');
+            menu.classList.toggle('open');
+        }
+
+        function openCamera() {
+            const videoContainer = document.getElementById('videoContainer');
+            const takePhotoButton = document.getElementById('takePhotoButton');
+            const cameraButton = document.getElementById('cameraButton');
+            videoContainer.style.display = 'block';
+            takePhotoButton.style.display = 'block';
+            cameraButton.textContent = '📷 Κλείσιμο κάμερας';
+
+            const constraints = {
+                video: {
+                    facingMode: currentCamera
+                }
+            };
+
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(stream => {
+                    videoStream = stream;
+                    const video = document.getElementById('video');
+                    video.srcObject = stream;
+                    cameraOpen = true;
+                })
+                .catch(err => {
+            console.error('Error accessing camera: ', err);
+            alert('Δεν Βρέθηκε Κάμερα.');
+            videoContainer.style.display = 'none';
+            takePhotoButton.style.display = 'none';
+            cameraButton.textContent = '📷 Κάμερα';
+            cameraOpen = false;
+        });
+    }
+        function closeCamera() {
+            const videoContainer = document.getElementById('videoContainer');
+            const takePhotoButton = document.getElementById('takePhotoButton');
+            const cameraButton = document.getElementById('cameraButton');
+            videoContainer.style.display = 'none';
+            takePhotoButton.style.display = 'none';
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            cameraOpen = false;
+            cameraButton.textContent = '📷 Κάμερα';
+        }
+
+        function reloadCamera() {
+            closeCamera();
+            openCamera();
+        }
+
+        function removeThumbnail(thumbnailWrapper, file) {
+            thumbnailWrapper.remove();
+            const index = selectedFiles.indexOf(file);
+            if (index !== -1) {
+                selectedFiles.splice(index, 1);
+            }
+            updateFileInput();
+        }
+
+        function submitForm() {
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+
+            if (files.length === 0) {
+                const errorMessage = document.getElementById('errorMessage');
+                errorMessage.style.display = 'block';
+            } else {
+                document.getElementById('uploadForm').submit();
+            }
+        }
+
+        function previewPhoto(imageDataUrl) {
+            const modal = document.getElementById('modal');
+            const modalImage = document.getElementById('modalImage');
+            const modalPdf = document.getElementById('modalPdf');
+            modalPdf.style.display = 'none';
+            modalImage.src = imageDataUrl;
+            modalImage.style.display = 'block';
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.style.display = 'none';
+        }
+
+        window.onload = () => {
+            document.getElementById('frame').style.display = 'none';
+        };
+        async function takePhoto() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    const thumbnailContainer = document.getElementById('thumbnailContainer');
+
+    const targetWidth = 1280;
+    const targetHeight = 1024;
+
+    // Set canvas dimensions to the target size
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    // Calculate scaling factor for resizing the captured image
+    const scaleX = video.videoWidth / canvas.width;
+    const scaleY = video.videoHeight / canvas.height;
+
+    // Draw the video frame scaled to fit the canvas
+    context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight, 0, 0, canvas.width, canvas.height);
+
+    // Load the image data into OpenCV
+    const src = cv.imread(canvas);
+    const gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+    // Adjust contrast and brightness
+    const alpha = 1.5; // Contrast control (1.0-3.0)
+    const beta = 0;    // Brightness control (0-100)
+    cv.convertScaleAbs(gray, gray, alpha, beta);
+
+    const blurred = new cv.Mat();
+    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+
+    const edges = new cv.Mat();
+    cv.Canny(blurred, edges, 75, 200);
+
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
+    cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    let maxArea = 0;
+    let maxContour = null;
+    for (let i = 0; i < contours.size(); i++) {
+        const contour = contours.get(i);
+        const area = cv.contourArea(contour);
+        if (area > maxArea) {
+            maxArea = area;
+            maxContour = contour;
+        }
+    }
+
+    if (maxContour) {
+        const peri = cv.arcLength(maxContour, true);
+        const approx = new cv.Mat();
+        cv.approxPolyDP(maxContour, approx, 0.02 * peri, true);
+
+        if (approx.rows === 4) {
+            const pts = [];
+            for (let i = 0; i < approx.rows; i++) {
+                pts.push({
+                    x: approx.data32S[i * 2],
+                    y: approx.data32S[i * 2 + 1]
+                });
+            }
+
+            const sortedPts = sortPoints(pts);
+            const [tl, tr, br, bl] = sortedPts;
+
+            const widthA = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
+            const widthB = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
+            const maxWidth = Math.max(widthA, widthB);
+
+            const heightA = Math.sqrt(Math.pow(tr.x - br.x, 2) + Math.pow(tr.y - br.y, 2));
+            const heightB = Math.sqrt(Math.pow(tl.x - bl.x, 2) + Math.pow(tl.y - bl.y, 2));
+            const maxHeight = Math.max(heightA, heightB);
+
+            const dst = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                0, 0,
+                maxWidth - 1, 0,
+                maxWidth - 1, maxHeight - 1,
+                0, maxHeight - 1
+            ]);
+
+            const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
+                tl.x, tl.y,
+                tr.x, tr.y,
+                br.x, br.y,
+                bl.x, bl.y
+            ]);
+
+            const M = cv.getPerspectiveTransform(srcPts, dst);
+            const warped = new cv.Mat();
+            const dsize = new cv.Size(maxWidth, maxHeight);
+            cv.warpPerspective(src, warped, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+
+            // Flip horizontally
+            const flipped = new cv.Mat();
+            cv.flip(warped, flipped, 1);
+
+            // Enhance image contrast and brightness
+            enhanceImage(flipped, canvas);
+
+            // Get the image data from the canvas (flipped and enhanced version)
+            const imageData = canvas.toDataURL('image/png');
+
+            // Create an image element to display the captured photo
+            const img = document.createElement('img');
+            img.src = imageData;
+            img.classList.add('thumbnail');
+            img.onclick = () => previewPhoto(imageData);
+
+            // Create a wrapper for the thumbnail and remove button
+            const thumbnailWrapper = document.createElement('div');
+            thumbnailWrapper.classList.add('thumbnail-wrapper');
+
+            // Create a remove button for the thumbnail
+            const removeButton = document.createElement('button');
+            removeButton.classList.add('remove-file');
+            removeButton.innerHTML = '&minus;';
+            removeButton.onclick = () => removeThumbnail(thumbnailWrapper, img);
+
+            thumbnailWrapper.appendChild(img);
+            thumbnailWrapper.appendChild(removeButton);
+            thumbnailContainer.appendChild(thumbnailWrapper);
+
+            // Convert canvas to Blob and add to selectedFiles array
+            canvas.toBlob((blob) => {
+                const file = new File([blob], `photo_${Date.now()}.png`, { type: 'image/png' });
+                selectedFiles.push(file);
+                updateFileInput();
+
+                // Update removeButton to reference the correct file
+                removeButton.onclick = () => removeThumbnail(thumbnailWrapper, file);
+            });
+
+            document.getElementById('reloadCameraButton').style.display = 'block';
+        }
+    }
+
+    // Release memory
+    src.delete();
+    gray.delete();
+    blurred.delete();
+    edges.delete();
+    contours.delete();
+    hierarchy.delete();
+    if (maxContour) approx.delete();
+}
+
+function enhanceImage(flipped, canvas) {
+    const context = canvas.getContext('2d');
+
+    // Enhance contrast and brightness of flipped image
+    const alpha = 1.2; // Contrast control (1.0-3.0)
+    const beta = 20;   // Brightness control (0-100)
+    const enhanced = new cv.Mat();
+    cv.convertScaleAbs(flipped, enhanced, alpha, beta);
+
+    // Apply gamma correction for better readability
+    const gamma = 1.0; // Gamma control (0.1-3.0)
+    const lookUpTable = new cv.Mat(1, 256, cv.CV_8U);
+    const gammaCorrected = new cv.Mat();
+    for (let i = 0; i < 256; i++) {
+        lookUpTable.data[i] = Math.pow(i / 255.0, gamma) * 255.0;
+    }
+    cv.LUT(enhanced, lookUpTable, gammaCorrected);
+
+    cv.imshow(canvas, gammaCorrected);
+
+    flipped.delete();
+    enhanced.delete();
+    lookUpTable.delete();
+    gammaCorrected.delete();
+}
+
+
+
+        function sortPoints(points) {
+            points.sort((a, b) => a.y - b.y);
+            const [tl, bl] = points.slice(0, 2).sort((a, b) => a.x - b.x);
+            const [tr, br] = points.slice(2).sort((a, b) => a.x - b.x);
+            return [tl, tr, br, bl];
+        }
+        let logoutTimer;
+
+        function startLogoutTimer() {
+            logoutTimer = setTimeout(logout, 5 * 60 * 1000); // 5 minutes
+        }
+
+        function resetLogoutTimer() {
+            clearTimeout(logoutTimer);
+            startLogoutTimer();
+        }
+
+        function logout() {
+            // Perform logout actions, such as redirecting to the logout endpoint
+            window.location.href = '/logout';
+        }
+
+        // Reset timer on user activity
+        document.addEventListener('mousemove', resetLogoutTimer);
+        document.addEventListener('keypress', resetLogoutTimer);
+
+        // Start the initial timer
+        startLogoutTimer();
+    </script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyStirixis</title>
+
+</head>
+<body>
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+    <div class="menu">
+        <ul>
+            <br><br><br><br>
+            <li><a href="/payroll">Μισθοδοσία</a></li>
+            <li><a href="/invoice">Παραστατικά</a></li>
+            <li><a href="/contact">Επικοινωνία</a></li>
+            <li><a href="/logout" class="logout-button">Logout</a></li>
+        </ul>
+    </div>
+    <br>
+    <br>
+    <div class="logo-container">
+        <a href="/index">
+            <img src="STIRIXIS.png" alt="Logo" class="logo">
+        </a>
+    </div>
+    
+    <h2>Φόρμα Επικοινωνίας</h2>
+   
+    <form id="contactForm" action="/submit_contact" method="POST">
+    <div class="form-group"><label for="message">Μήνυμα:</label></div>
+        <div class="form-group">
+            <textarea id="message" name="message" rows="9" required cols="35"></textarea>
+        </div>
+        <button type="submit">Αποστολή</button>
+    </form>
+    <h2> Στοιχεία Επικοινωνίας</h2>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <p><img src="map.png" height="18px" width="18px">Διεύθυνση:<a href="https://maps.app.goo.gl/LAeQ2HV7peZarTc36"> Ζαϊμη & Μαγνησίας 19, Πύργος Ηλείας, <br>Τ.Κ. 27 131 </p></a>
+        <p>Τηλ. <a href="tel:2621034449">2621034449</a> ☎️, <a href="tel:2621081191">2621081190</a> ☎️</p>
+        <p>Κεντρικό email: <a href="mailto:info@stirixisnet.gr">info@stirixisnet.gr</a> 📧</p>
+        <p>Κοινωνικά δίκτυα: <a href="https://www.facebook.com/StirixisNet" target="_blank">Facebook Page<img src="Facebooklogo.png" width="16px" height="16px"></a></p>
+    </div>
+
+    <script>
+        let logoutTimer;
+
+        function startLogoutTimer() {
+            logoutTimer = setTimeout(logout, 5 * 60 * 1000); // 5 minutes
+        }
+
+        function resetLogoutTimer() {
+            clearTimeout(logoutTimer);
+            startLogoutTimer();
+        }
+
+        function logout() {
+            window.location.href = '/logout';
+        }
+
+        document.addEventListener('mousemove', resetLogoutTimer);
+        document.addEventListener('keypress', resetLogoutTimer);
+
+        startLogoutTimer();
+
+        function toggleMenu() {
+            const menu = document.querySelector('.menu');
+            menu.classList.toggle('open');
+        }
+    </script>
+</body>
+</html>

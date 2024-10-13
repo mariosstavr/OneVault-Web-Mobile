@@ -1,0 +1,31 @@
+{
+  "name": "webapp",
+  "version": "1.0.0",
+  "main": "index.ejs",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "body-parser": "^1.20.2",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "firebase-admin": "^12.1.1",
+    "fs": "^0.0.1-security",
+    "image-js": "^0.35.5",
+    "jsfeat": "^0.0.8",
+    "last": "^1.1.0",
+    "multer": "^1.4.5-lts.1",
+    "node-openssl-cert": "^0.1.42",
+    "node-xlsx": "^0.4.0",
+    "nodemailer": "^6.9.13",
+    "nodemon": "^3.1.4",
+    "path": "^0.12.7",
+    "xlsx": "file:xlsx-0.20.2.tgz"
+  }
+}

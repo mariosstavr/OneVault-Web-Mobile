@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Μισθοδοσία Stirixis</title>
+</head>
+<body>
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+    <div class="menu">
+        <ul>
+            <br>
+            <br>
+            <br>
+            <br>
+            <li><a href="/index">Αρχική</a></li>
+            <li><a href="/payroll">Μισθοδοσία</a></li>
+            <li><a href="/invoice">Παραστατικά</a></li>
+            <li><a href="/contact">Επικοινωνία</a></li>
+            <li><a href="/logout" class="logout-button">Logout</a></li>
+        </ul>
+    </div>
+
+    <br>
+    <br>
+    <div class="logo-container">
+        <a href="/index">
+            <img src="STIRIXIS.png" alt="Logo" class="logo">
+        </a>
+    </div>
+    <br>
+    <h2>MyStirixis Μισθοδοσία <%= vat %></h2>
+    <div class="logo-container">
+        <img src="/underconstruction.jpg" alt="logo" class="logo">
+    </div>
+    <script>
+        let logoutTimer;
+
+        function startLogoutTimer() {
+            logoutTimer = setTimeout(logout, 5 * 60 * 1000); // 5 minutes
+        }
+
+        function resetLogoutTimer() {
+            clearTimeout(logoutTimer);
+            startLogoutTimer();
+        }
+
+        function logout() {
+            // Perform logout actions, such as redirecting to the logout endpoint
+            window.location.href = '/logout';
+        }
+
+        // Reset timer on user activity
+        document.addEventListener('mousemove', resetLogoutTimer);
+        document.addEventListener('keypress', resetLogoutTimer);
+
+        // Start the initial timer
+        startLogoutTimer();
+
+        function toggleMenu() {
+            const menu = document.querySelector('.menu');
+            menu.classList.toggle('open');
+        }
+    </script>
+</body>
+</html>

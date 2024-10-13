@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyStirixis</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+    <br>
+    <br>
+    <div class="logo-container">
+        <a href="/index">
+            <img src="STIRIXIS.png" alt="Logo" class="logo">
+        </a>
+    </div>
+    <br>
+
+    <div class="container">
+        <form id="loginForm" action="/login" method="post">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required >
+                <span id="togglePassword" class="password-toggle" onclick="togglePasswordVisibility()">👁️</span>
+            </div>
+            <button type="submit">Είσοδος</button>
+        </form>
+    </div>
+
+    <!-- Modal for displaying error -->
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <p id="error-msg"></p>
+            <button id="closeModal">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript for handling modal
+        const modal = document.getElementById("myModal");
+        const closeModalBtn = document.getElementById("closeModal");
+
+        closeModalBtn.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        // Prevent form submission on client-side and handle it asynchronously
+        const loginForm = document.getElementById("loginForm");
+        loginForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            const formData = new FormData(loginForm);
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: formData.get('username'),
+                        password: formData.get('password')
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    window.location.href = '/index';
+                } else {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Error logging in');
+                }
+            } catch (error) {
+                document.getElementById("error-msg").innerText = error.message;
+                modal.style.display = "block";
+            }
+        });
+        // Toggle password visibility
+        function togglePasswordVisibility() {
+            const passwordField = document.getElementById("password");
+            const toggleButton = document.getElementById("togglePassword");
+            if (passwordField.type === "password") {
+                passwordField.type = "text";
+                toggleButton.textContent = "👁️";
+            } else {
+                passwordField.type = "password";
+                toggleButton.textContent = "👁️";
+            }
+        }
+    </script>
+</body>
+</html>
