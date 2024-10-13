@@ -160,8 +160,8 @@ app.post('/submit_contact', (req, res) => {
 
     const mailOptions = {
         from: user.email,
-        to: 'stavropoulos@stirixisnet.gr',
-        subject: `myStirixisApp - ΑΦΜ: ${vat}`,
+        to: '*******@***.com',
+        subject: `webapp - ΑΦΜ: ${vat}`,
         text: `ΑΦΜ: ${vat}\nEmail: ${user.email}\n\nMessage:\n${message}`
     };
 
@@ -226,7 +226,7 @@ const httpsOptions = {
 };
 
 // Start HTTPS server
-const port = 3000;
+const port = 3660;
 
 https.createServer(httpsOptions, app).listen(port, () => {
     console.log(`Server is listening on https://localhost:${port}`);
