@@ -131,7 +131,7 @@ const fileFilter = (req, file, cb) => {
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Μη επιτρεπόμενος τύπος αρχείου. Επιτρέπονται μόνο JPEG, PNG, PDF, TXT και XLSX.'));
+        cb(new Error('Supported files only: JPEG, PNG, PDF, TXT και XLSX.'));
     }
 };
 
@@ -139,9 +139,9 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 102
 
 app.post('/upload', upload.array('files', 10), (req, res) => { // Allow up to 10 files to be uploaded
     if (req.session.vat) {
-        res.send('<script>alert("Επιτυχής Αποστολή Παραστατικού"); window.location.href="/invoice";</script>');
+        res.send('<script>alert("success"); window.location.href="/invoice";</script>');
     } else {
-        res.status(401).send('<script>alert("Η αποστολή απέτυχε, ξαναπροσπαθήστε αργότερα"); window.location.href="/";</script>');
+        res.status(401).send('<script>alert("failed"); window.location.href="/";</script>');
     }
 });
 
@@ -161,28 +161,21 @@ app.post('/submit_contact', (req, res) => {
     const mailOptions = {
         from: user.email,
         to: '*******@***.com',
-        subject: `webapp - ΑΦΜ: ${vat}`,
-        text: `ΑΦΜ: ${vat}\nEmail: ${user.email}\n\nMessage:\n${message}`
+        subject: `webapp - ${vat}`,
+        text: `: ${vat}\nEmail: ${user.email}\n\nMessage:\n${message}`
     };
 
     transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
             console.error(error);
-            res.status(500).send('<script>alert("Η αποστολή απέτυχε, ξαναπροσπαθήστε αργότερα"); window.location.href="/contact";</script>');
+            res.status(500).send('<script>alert("failed"); window.location.href="/contact";</script>');
         } else {
-            res.status(200).send('<script>alert("Το μήνυμα σας εστάλη επιτυχώς θα επικοινωνήσουμε σύντομα μαζί σας."); window.location.href="/contact";</script>');
+            res.status(200).send('<script>alert("message send completed"); window.location.href="/contact";</script>');
         }
     });
 });
 
-// Render payroll page
-app.get('/payroll', (req, res) => {
-    if (req.session.vat) {
-        res.render('payroll', { vat: req.session.vat });
-    } else {
-        res.redirect('/');
-    }
-});
+
 
 // Render invoice page
 app.get('/invoice', (req, res) => {
@@ -219,16 +212,8 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// HTTPS Configuration
-const httpsOptions = {
-    key: fs.readFileSync('E:/webApp/OpenSSL-Win64/bin/server.key'), // Path to your server private key
-    cert: fs.readFileSync('E:/webApp/OpenSSL-Win64/bin/server.crt') // Path to your server SSL certificate
-};
 
-// Start HTTPS server
-const port = 3660;
 
-https.createServer(httpsOptions, app).listen(port, () => {
-    console.log(`Server is listening on https://localhost:${port}`);
-});
+
+
 
