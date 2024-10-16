@@ -25,9 +25,9 @@
             <br>
             <br>
             <br>
-            <li><a href="/payroll">Μισθοδοσία</a></li>
-            <li><a href="/invoice">Παραστατικά</a></li>
-            <li><a href="/contact">Επικοινωνία</a></li>
+            <li><a href="/payroll">list1</a></li>
+            <li><a href="/invoice">list2</a></li>
+            <li><a href="/contact">mail</a></li>
             <li><a href="/logout" class="logout-button">Logout</a></li>
         </ul>
     </div>
@@ -39,54 +39,10 @@
         </a>
     </div>
     <br>
-    <h1 class="welcome-message">Καλώς ήρθατε στο MyWebApp <%= vat %></h1>
-    <div class="centered-text">
-        Η<b> WebApp</b> 
+    <h1 class="welcome-message">MyWebApp <%= vat %></h1>
 
-        </div>
-        <div class="lamp-emoji">💡<br></div>
-        <div class="centered-text"><i><b>Εμείς Καινοτομούμε</b></i><br>
-            Καινοτομούμε συστηματικά,
-            συνεχώς και με επιτυχία.
-        </div>
-        <div class="emoji-container">
-            📈 <!-- Growth chart arrow emoji -->
-        </div>
-        <div class="centered-text">
-        <i><b>Υψηλή Απόδοση</b></i><br>
-Εξειδικευόμαστε στην επίλυση προβλημάτων
-και την οικοδόμηση των επιχειρήσεων.
-        </div>
-        
-    <script>
+       
+      
     
-        let logoutTimer;
-
-        function startLogoutTimer() {
-            logoutTimer = setTimeout(logout, 5 * 60 * 1000); // 5 minutes
-        }
-
-        function resetLogoutTimer() {
-            clearTimeout(logoutTimer);
-            startLogoutTimer();
-        }
-
-        function logout() {
-            // Perform logout actions, such as redirecting to the logout endpoint
-            window.location.href = '/logout';
-        }
-
-        // Reset timer on user activity
-        document.addEventListener('mousemove', resetLogoutTimer);
-        document.addEventListener('keypress', resetLogoutTimer);
-
-        // Start the initial timer
-        startLogoutTimer();
-
-        function toggleMenu() {
-            const menu = document.querySelector('.menu');
-            menu.classList.toggle('open');
-        }
-    </script>
 </body>
 </html>
