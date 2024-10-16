@@ -34,34 +34,6 @@
     <div class="logo-container">
         <img src="/underconstruction.jpg" alt="logo" class="logo">
     </div>
-    <script>
-        let logoutTimer;
-
-        function startLogoutTimer() {
-            logoutTimer = setTimeout(logout, 5 * 60 * 1000); // 5 minutes
-        }
-
-        function resetLogoutTimer() {
-            clearTimeout(logoutTimer);
-            startLogoutTimer();
-        }
-
-        function logout() {
-            // Perform logout actions, such as redirecting to the logout endpoint
-            window.location.href = '/logout';
-        }
-
-        // Reset timer on user activity
-        document.addEventListener('mousemove', resetLogoutTimer);
-        document.addEventListener('keypress', resetLogoutTimer);
-
-        // Start the initial timer
-        startLogoutTimer();
-
-        function toggleMenu() {
-            const menu = document.querySelector('.menu');
-            menu.classList.toggle('open');
-        }
-    </script>
+    
 </body>
 </html>
