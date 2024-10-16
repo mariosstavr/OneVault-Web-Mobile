@@ -12,9 +12,9 @@
     <div class="menu">
         <ul>
             <br><br><br><br>
-            <li><a href="/payroll">Μισθοδοσία</a></li>
-            <li><a href="/invoice">Παραστατικά</a></li>
-            <li><a href="/contact">Επικοινωνία</a></li>
+            <li><a href="/payroll">list1</a></li>
+            <li><a href="/invoice">list2</a></li>
+            <li><a href="/contact">list3</a></li>
             <li><a href="/logout" class="logout-button">Logout</a></li>
         </ul>
     </div>
@@ -33,7 +33,7 @@
         <div class="form-group">
             <textarea id="message" name="message" rows="9" required cols="35"></textarea>
         </div>
-        <button type="submit">Αποστολή</button>
+        <button type="submit">send mail</button>
     </form>
     <h2> Στοιχεία Επικοινωνίας</h2>
     <div style="text-align: center; margin-bottom: 20px;">
@@ -43,31 +43,5 @@
         <p>Κοινωνικά δίκτυα: <a href="https://www.facebook.com/" target="_blank">Facebook Page<img src="Facebooklogo.png" width="16px" height="16px"></a></p>
     </div>
 
-    <script>
-        let logoutTimer;
-
-        function startLogoutTimer() {
-            logoutTimer = setTimeout(logout, 5 * 60 * 1000); // 5 minutes
-        }
-
-        function resetLogoutTimer() {
-            clearTimeout(logoutTimer);
-            startLogoutTimer();
-        }
-
-        function logout() {
-            window.location.href = '/logout';
-        }
-
-        document.addEventListener('mousemove', resetLogoutTimer);
-        document.addEventListener('keypress', resetLogoutTimer);
-
-        startLogoutTimer();
-
-        function toggleMenu() {
-            const menu = document.querySelector('.menu');
-            menu.classList.toggle('open');
-        }
-    </script>
 </body>
 </html>
