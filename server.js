@@ -1,29 +1,108 @@
+require('dotenv').config(); 
 const express = require('express');
 const path = require('path');
-const xlsx = require('xlsx');
-const bodyParser = require('body-parser');
-const session = require('express-session');
 const multer = require('multer');
-const fs = require('fs');
 const nodemailer = require('nodemailer');
-const https = require('https'); // Include HTTPS module
-
+const favicon = require('serve-favicon');
+const { db } = require('./firebase');
+const cookieParser = require('cookie-parser');
+const msal = require('@azure/msal-node');
+const { Client } = require('@microsoft/microsoft-graph-client');
+require('isomorphic-fetch'); 
 const app = express();
 
+const msalConfig = {
+    auth: {
+        clientId: process.env.ONEDRIVE_CLIENT_ID,
+        authority: `https://login.microsoftonline.com/${process.env.ONEDRIVE_TENANT_ID}`,
+        clientSecret: process.env.ONEDRIVE_CLIENT_SECRET,
+    }
+};
+const cca = new msal.ConfidentialClientApplication(msalConfig);
+
+let cachedToken = null;
+let tokenExpiryTime = null;
+
+const getUserByUsername = async (username) => {
+    const userRef = db.ref(`users/${username}`);
+    const snapshot = await userRef.once('value');
+    const user = snapshot.val();
+    if (user) return user;
+    throw new Error('User not found');
+};
+
+const getUserByVAT = async (vat) => {
+    const userRef = db.ref('users').orderByChild('vat').equalTo(vat.toString());
+    const snapshot = await userRef.once('value');
+    const userData = snapshot.val();
+    if (userData) {
+        const userKey = Object.keys(userData)[0];
+        return userData[userKey];
+    }
+    throw new Error('User not found for VAT');
+};
+
+//Microsoft Graph access token
+const getAccessToken = async () => {
+    if (cachedToken && tokenExpiryTime > Date.now()) {
+        console.log('Using cached token');
+        return cachedToken;
+    }
+
+    const tokenRequest = { scopes: ["https://graph.microsoft.com/.default"] };
+    try {
+        const response = await cca.acquireTokenByClientCredential(tokenRequest);
+        cachedToken = response.accessToken;
+        tokenExpiryTime = Date.now() + (response.expiresIn || 3600) * 1000; // Default to 1 hour
+        return cachedToken;
+    } catch (error) {
+        console.error('Error acquiring token:', error);
+        throw new Error('Unable to get access token for OneDrive');
+    }
+};
+
+//initialize Microsoft Graph client
+const getAuthenticatedClient = (accessToken) => Client.init({
+    authProvider: (done) => done(null, accessToken),
+});
+
+//fetch data from OneDrive
+const fetchOneDriveData = async (endpoint) => {
+    const accessToken = await getAccessToken();
+    const client = getAuthenticatedClient(accessToken);
+    return await client.api(endpoint).get();
+};
+
+//generate directory tree
+const getDirectoryTree = (files) => {
+    const tree = {};
+    files.forEach(file => {
+        const parts = file.name.split('/');
+        let currentLevel = tree;
+        parts.forEach((part, index) => {
+            if (index === parts.length - 1) {
+                currentLevel[part] = { type: file.folder ? 'folder' : 'file', downloadUrl: file['@microsoft.graph.downloadUrl'] || null };
+            } else {
+                currentLevel[part] = currentLevel[part] || {};
+                currentLevel = currentLevel[part];
+            }
+        });
+    });
+    return tree;
+};
+
+// Centralized error-handling middleware
+app.use((err, req, res, next) => {
+    console.error('Error:', err.message);
+    res.status(err.status || 500).json({ success: false, message: err.message || 'Internal server error' });
+});
+
 // Parse incoming request bodies
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-
-// Configure session middleware
-app.use(session({
-    secret: 'your_secret_key',
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false }
-}));
-
-// Serve static files including CSS from the 'public' directory
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(cookieParser());
 
 // Set the views directory and the view engine
 app.set('views', path.join(__dirname, 'views'));
@@ -35,185 +114,557 @@ app.use((req, res, next) => {
     next();
 });
 
-// Define a route to render the homepage
-app.get('/', (req, res) => {
-    res.render('homepage');
-});
+app.post('/login', async (req, res, next) => {
+    const { username, password } = req.body;
 
-// Define a route to render the index page
-app.get('/index', (req, res) => {
-    if (req.session.vat) {
-        res.render('index', { vat: req.session.vat });
-    } else {
-        res.redirect('/');
+    try {
+        const user = await getUserByUsername(username);
+        if (user && user.password === password) {
+            const { vat, isPayroll } = user;
+
+            res.cookie('vat', vat, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 86400000 });
+            res.cookie('isPayroll', isPayroll, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 86400000 });
+
+            res.status(200).json({ success: true, message: 'Login successful' });
+        } else {
+            throw new Error('Invalid username or password');
+        }
+    } catch (error) {
+        next(error);
     }
 });
 
-// Define a route for logging out
 app.get('/logout', (req, res) => {
-    req.session.destroy();
+    res.clearCookie('vat');
+    res.clearCookie('isPayroll');
     res.redirect('/');
 });
 
-// Function to read credentials from the Excel file
-const readCredentials = () => {
-    const filePath = path.join(__dirname, 'data', 'credentials.xlsx');
-    const workbook = xlsx.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    return xlsx.utils.sheet_to_json(sheet).map(row => ({
-        username: row.username,
-        password: row.password.toString(),
-        vat: row.vat, // assuming the column is named 'vat' in the excel file
-        email: row.email // assuming the column is named 'email' in the excel file
-    }));
-};
+app.get('/', (req, res) => {
+    res.render('homepage', { showPayroll: false });
+});
 
-app.post('/login', async (req, res) => {
+app.get('/index', (req, res) => {
+    const { vat, isPayroll } = req.cookies;
+    if (!vat) return res.redirect('/');
+    res.render('index', { vat, showPayroll: isPayroll === '1' });
+});
+
+app.get('/payroll', (req, res) => {
+    const { vat, isPayroll } = req.cookies;
+    if (!vat) return res.redirect('/');
+    res.render('payroll', { vat, showPayroll: isPayroll === '1' });
+});
+
+app.get('/fmy', (req, res) => {
+    const { vat, isPayroll } = req.cookies;
+    if (!vat) return res.redirect('/');
+    res.render('fmy', { vat, showPayroll: isPayroll === '1' });
+});
+
+app.get('/afm', (req, res) => {
+    const { vat, isPayroll } = req.cookies;
+    if (!vat) return res.redirect('/');
+    res.render('afm', { vat, showPayroll: isPayroll === '1' });
+});
+
+app.get('/invoice', (req, res) => {
+    const { vat, isPayroll } = req.cookies;
+    if (vat) res.render('invoice', { vat, showPayroll: isPayroll === '1' });
+    else res.redirect('/');
+});
+
+app.get('/files', async (req, res, next) => {
+    const vat = req.cookies.vat?.toString();
+    if (!vat) return res.redirect('/');
+
     try {
-        const { username, password } = req.body;
-        const credentials = readCredentials();
-        const user = credentials.find(cred => cred.username === username && cred.password === password);
-        if (user) {
-            req.session.vat = user.vat;
-            res.json({ message: 'Login successful', vat: user.vat });
-        } else {
-            res.status(401).json({ message: 'Το username ή ο κωδικός είναι λανθασμένα' });
-        }
+        const showPayroll = req.cookies.isPayroll === '1';
+        res.render('files', { vat, showPayroll });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error processing login request' });
+        return next(error);
     }
 });
 
-// Middleware to handle file uploads with multer
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const vat = req.session.vat.toString(); // Ensure VAT is treated as a string
-        const folderPath = path.join('D:', vat);
-        if (!fs.existsSync(folderPath)) {
-            fs.mkdirSync(folderPath, { recursive: true });
+app.get('/get-folder-structure/:vat', async (req, res, next) => {
+    const vat = req.params.vat;
+    if (!vat) {
+        return res.status(403).json({ error: 'Forbidden: No VAT provided' });
+    }
+
+    try {
+        const accessToken = await getAccessToken();
+        const client = getAuthenticatedClient(accessToken);
+
+        const sharedFolderId = "SHARED FOLDER ID"; // SharedFolder ID
+        const response = await client.api(`***URL/FOLDER/items/${sharedFolderId}/children`).get();
+
+        // Find the matching folder using VAT
+        const matchingFolder = response.value.find(folder => folder.name.endsWith(vat));
+        if (!matchingFolder) {
+            return res.status(404).json({ error: `No folder found for VAT: ${vat}` });
         }
-        cb(null, folderPath);
-    },
-    filename: (req, file, cb) => {
-        const originalFilename = Buffer.from(file.originalname, 'latin1').toString('utf8'); // Handle file names correctly
-        const folderPath = path.join('D:', req.session.vat.toString());
+
+        // Get the children of the matching folder
+        const vatFolderContents = await client.api(`UNIQUE FOLDER FOR EACH URER IN THIS PROJECT DEPENDS VAT ${matchingFolder.id}/children`).get();
+
+        // Find the "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ" folder inside the VAT folder
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ");
+        if (!targetFolder) {
+            return res.status(404).json({ error: `Folder "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ" not found in VAT folder` });
+        }
+
+        // Get the contents of "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ"
+        const targetFolderContents = await client.api(`SUBFOLDER ID${targetFolder.id}/children`).get();
+
+        // Format the data for the frontend
+        const formattedData = targetFolderContents.value.map(item => ({
+            name: item.name,
+            type: item.folder ? 'folder' : 'file',
+            lastModifiedDateTime: item.lastModifiedDateTime || 'Unknown', 
+        }));
+
+        res.json(formattedData);
+
+    } catch (error) {
+        return next(error);
+    }
+});
+
+app.get('/get-fmy-folder-structure/:vat', async (req, res, next) => {
+    const vat = req.params.vat;
+    if (!vat) {
+        return res.status(403).json({ error: 'Forbidden: No VAT provided' });
+    }
+
+    try {
+        const accessToken = await getAccessToken();
+        const client = getAuthenticatedClient(accessToken);
+
+        const sharedFolderId = "012NZPIPVPAH5TPZZ4G5HJTRK26AZUC4BE"; // SharedFolder ID
+        const response = await client.api(`FOLDER ID ${sharedFolderId}/children`).get();
+
+        // Find the matching folder using VAT
+        const matchingFolder = response.value.find(folder => folder.name.endsWith(vat));
+        if (!matchingFolder) {
+            return res.status(404).json({ error: `No folder found for VAT: ${vat}` });
+        }
+
+        // Get the children of the matching folder (VAT folder)
+        const vatFolderContents = await client.api(`FOLDER ID/${matchingFolder.id}/children`).get();
+
+        // Find the "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ" folder inside the VAT folder
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "ΦΜΥ");
+        if (!targetFolder) {
+            return res.status(404).json({ error: ` SUBFOLDER FOLDER NOT FOUND MESSAGE` });
+        }
+
         
-        // Function to generate a unique filename
-        const generateUniqueFilename = (folderPath, originalFilename) => {
-            let filename = originalFilename;
-            let counter = 1;
+        const targetFolderContents = await client.api(`FOLDER ID/${targetFolder.id}/children`).get();
 
-            // Check if the file already exists in the folder
-            while (fs.existsSync(path.join(folderPath, filename))) {
-                // Append a counter to the filename to make it unique
-                const ext = path.extname(originalFilename);
-                const basename = path.basename(originalFilename, ext);
-                filename = `${basename} (${counter})${ext}`;
-                counter++;
-            }
+        
+        const formattedData = targetFolderContents.value.map(item => ({
+            name: item.name,
+            type: item.folder ? 'folder' : 'file',
+            lastModifiedDateTime: item.lastModifiedDateTime || 'Unknown', 
+        }));
 
-            return filename;
+        res.json(formattedData);
+
+    } catch (error) {
+        return next(error);
+    }
+});
+app.get('/get-afm-folder-structure/:vat', async (req, res, next) => {
+    const vat = req.params.vat;
+    if (!vat) {
+        return res.status(403).json({ error: 'DOESNT FOUND THE FOLDER THE FOLDER CALLED AFM IN USERS FOLDER' });
+    }
+
+    try {
+        const accessToken = await getAccessToken();
+        const client = getAuthenticatedClient(accessToken);
+
+        const sharedFolderId = "SHARED FOLDER ID"; 
+        const response = await client.api(`FOLDER ID/items/${sharedFolderId}/children`).get();
+
+        
+        const matchingFolder = response.value.find(folder => folder.name.endsWith(vat));
+        if (!matchingFolder) {
+            return res.status(404).json({ error: `No folder found for VAT: ${vat}` });
+        }
+
+        
+        const vatFolderContents = await client.api(`FOLDER ID/items/${matchingFolder.id}/children`).get();
+
+        
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "ΑΦΜ");
+        if (!targetFolder) {
+            return res.status(404).json({ error: `DOESNT FOUND AFM SUBFOLDER` });
+        }
+        
+        const targetFolderContents = await client.api(`ID FOLDER/${targetFolder.id}/children`).get();
+        const formattedData = targetFolderContents.value.map(item => ({
+            name: item.name,
+            type: item.folder ? 'folder' : 'file',
+            lastModifiedDateTime: item.lastModifiedDateTime || 'Unknown', // Ensure modified date is passed
+        }));
+
+        res.json(formattedData);
+
+    } catch (error) {
+        return next(error);
+    }
+});
+//CHOOSE WHICH USERS CAN SEE A PAGE IN THIS PROJECT IF THE USER HAS 1 ON DATABASE ON PAYROLL COULD SEE THE payroll page
+app.get('/contact', (req, res) => {
+    const vat = req.cookies.vat;
+    const showPayroll = req.cookies.isPayroll === '1';
+
+    if (!vat) {
+        console.log('Redirecting to homepage: VAT not found in cookies');
+        return res.redirect('/');
+    }
+
+    console.log('Rendering contact page for VAT:', vat);
+    res.render('contact', { vat, showPayroll });
+});
+
+// Email took from Database the email and sends with this as sender 
+app.post('/submit_contact', async (req, res, next) => {
+    const message = req.body.message;
+    const vat = req.cookies.vat;
+
+    try {
+        if (!vat) return res.status(401).send('<script>alert("Cannot upload"); window.location.href="/";</script>');
+
+        const user = await getUserByVAT(vat);
+
+        const mailOptions = {
+            from: user.email,
+            to: 'dgggdssgds@test.com',
+            subject: `myApp - ΑΦΜ: ${vat}`,
+            text: `nEmail: ${user.email}\n\nMessage:\n${message}`
         };
 
-        // Generate a unique filename for the uploaded file
-        const uniqueFilename = generateUniqueFilename(folderPath, originalFilename);
-        
-        cb(null, uniqueFilename);
+        const transporter = nodemailer.createTransport({
+            host: 'mail.server.com',
+            port: 488,
+            secure: true,
+            auth: {
+                user: process.env.MAIL_USER,
+                pass: process.env.MAIL_PASS
+            }
+        });
+
+        await transporter.sendMail(mailOptions);
+        res.status(200).send('<script>alert("the mail complete."); window.location.href="/contact";</script>');
+    } catch (error) {
+        next(error);
     }
 });
 
-// Define allowed file types
-const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-
-    if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(new Error('Supported files only: JPEG, PNG, PDF, TXT και XLSX.'));
-    }
-};
-
-const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } }); // Limit files to 10 MB
-
-app.post('/upload', upload.array('files', 10), (req, res) => { // Allow up to 10 files to be uploaded
-    if (req.session.vat) {
-        res.send('<script>alert("success"); window.location.href="/invoice";</script>');
-    } else {
-        res.status(401).send('<script>alert("failed"); window.location.href="/";</script>');
-    }
+// Multer configuration for uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+    storage,
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = [
+            'image/jpeg', 'image/png', 'application/pdf', 'text/plain',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/csv', 'text/html',
+        ];
+        if (file.mimetype === 'application/zip') return cb(null, false); // Zip files are not allowed
+        cb(null, allowedTypes.includes(file.mimetype));
+    },
+    limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// Handle POST request to /submit_contact
-app.post('/submit_contact', (req, res) => {
-    // Process the contact form submission here
-    // Example: Send an email using nodemailer
-    const message = req.body.message; // Assuming 'message' is the name attribute of your textarea input
-    const vat = req.session.vat;
 
-    const credentials = readCredentials();
-    const user = credentials.find(cred => cred.vat === vat);
-    if (!user) {
-        return res.status(401).send('<script>alert("Σφάλμα: Ανεπαρκή δικαιώματα πρόσβασης."); window.location.href="/";</script>');
+app.post('/upload', upload.array('files', 10), async (req, res, next) => {
+    const vat = req.cookies.vat?.toString();
+    if (!vat) {
+        return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
     }
 
-    const mailOptions = {
-        from: user.email,
-        to: '*******@***.com',
-        subject: `webapp - ${vat}`,
-        text: `: ${vat}\nEmail: ${user.email}\n\nMessage:\n${message}`
-    };
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).send('<script>alert("Δεν επιλέχθηκαν αρχεία. Επιλέξτε αρχεία για να συνεχίσετε."); window.location.href="/invoice";</script>');
+    }
 
-    transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-            console.error(error);
-            res.status(500).send('<script>alert("failed"); window.location.href="/contact";</script>');
-        } else {
-            res.status(200).send('<script>alert("message send completed"); window.location.href="/contact";</script>');
+    try {
+        const sharedFolderId = "shared folder id"; 
+        const accessToken = await getAccessToken();
+        const client = getAuthenticatedClient(accessToken);
+
+        //Get the SharedFolder's contents
+        const folderResponse = await client.api(`folder id/items/${sharedFolderId}/children`).get();
+        let vatFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
+
+        // Step 2: Create the VAT folder if it doesn't exist
+        if (!vatFolder) {
+            vatFolder = await client.api(`SharedFolder ID/${vat}:/children`).post({
+                folder: {},
+                "@microsoft.graph.conflictBehavior": "fail"
+            });
         }
-    });
-});
 
+        // Get the contents of the users folder
+        const vatFolderContents = await client.api(`id users folder/items/${vatFolder.id}/children`).get();
+        let targetFolder = vatFolderContents.value.find(folder => folder.name === "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ");
 
-
-// Render invoice page
-app.get('/invoice', (req, res) => {
-    if (req.session.vat) {
-        res.render('invoice', { vat: req.session.vat });
-    } else {
-        res.redirect('/');
-    }
-});
-
-// Render contact page
-app.get('/contact', (req, res) => {
-    if (req.session.vat) {
-        const credentials = readCredentials();
-        const user = credentials.find(cred => cred.vat === req.session.vat);
-        if (user) {
-            res.render('contact', { vat: req.session.vat, email: user.email });
-        } else {
-            res.redirect('/');
+        // Create "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ" folder if it doesn't exist
+        if (!targetFolder) {
+            targetFolder = await client.api(`/${vatFolder.id}/children`).post({
+                name: "name_folder",
+                folder: {},
+                "@microsoft.graph.conflictBehavior": "fail"
+            });
         }
-    } else {
-        res.redirect('/');
+
+        //Upload files to "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ"
+        await Promise.all(req.files.map(async (file) => {
+            const fileStream = Buffer.from(file.buffer);
+            const fileName = file.originalname;
+            return client.api(`api client one drive/${targetFolder.id}:/${fileName}:/content`).put(fileStream);
+        }));
+
+        res.send('<script>alert("Files uploaded successfully."); window.location.href="/invoice";</script>');
+    } catch (error) {
+        next(error);
     }
 });
 
-// Nodemailer transporter setup
-const transporter = nodemailer.createTransport({
-    host: '******',
-    port: 465,
-    secure: true,
-    auth: {
-        user: '****',
-        pass: '***'
+const axios = require('axios');
+
+app.get('/download/:fileName', async (req, res, next) => {
+    const fileName = decodeURIComponent(req.params.fileName); 
+    const vat = req.cookies.vat?.toString(); 
+
+    if (!vat) {
+        return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
+    }
+
+    try {
+        const accessToken = await getAccessToken(); 
+        const client = getAuthenticatedClient(accessToken);
+        const sharedFolderId = "sharedFolderId"; 
+        const folderResponse = await client.api(`api one drive/${sharedFolderId}/children`).get();
+        const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
+
+        if (!matchingFolder) {
+            return res.status(404).json({ error: `folder not found${vat}. });
+        }
+
+        const vatFolderContents = await client.api(`folder id}/children`).get();
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ");
+
+        if (!targetFolder) {
+            return res.status(404).json({ error: `NOT FOUND FOLDER${vat}` });
+        }
+  
+        const targetFolderContents = await client.api(`/drives/b!1HqcWAui8USuWF7C_19xQtfLSlT3AvpEnsUcng_5M4OGZwdDJDUoSpoVtBrW_z-I/items/${targetFolder.id}/children`).get();
+        const fileItem = targetFolderContents.value.find(item => item.name === fileName);
+
+        if (!fileItem) {
+            return res.status(404).json({ error: `FOLDER NOT FOUND${vat}. ` });
+        }
+        const downloadUrl = fileItem['@microsoft.graph.downloadUrl'];
+        if (!downloadUrl) {
+            return res.status(404).json({ error: 'FALSE ' });
+        }
+
+        //Fetch the file data from OneDrive using Axios and stream it to the client
+        const encodedUrl = encodeURI(downloadUrl);
+        const fileResponse = await axios({
+            url: encodedUrl,
+            method: 'GET',
+            responseType: 'stream',
+        });
+
+        //Set appropriate headers for file download
+        const fileExtension = fileName.split('.').pop().toLowerCase();
+        let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
+
+        if (fileExtension === 'pdf') {
+            res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+            contentType = 'application/pdf';
+        } else {
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+        }
+        res.setHeader('Content-Type', contentType);
+        fileResponse.data.pipe(res);
+
+    } catch (error) {
+        console.error('Error downloading file from OneDrive:', error);
+        return next(error);
     }
 });
 
+app.get('/download-fmy/:fileName', async (req, res, next) => {
+    const fileName = decodeURIComponent(req.params.fileName); // Decode the file name
+    const vat = req.cookies.vat?.toString(); // Fetch VAT from cookies
 
+    if (!vat) {
+        return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
+    }
 
+    try {
+        const accessToken = await getAccessToken(); // Get the app-level access token
+        const client = getAuthenticatedClient(accessToken);
 
+        //Get the SharedFolder's contents
+        const sharedFolderId = "SHARED FOLDER ID"; // SharedFolder ID
+        const folderResponse = await client.api(`API`).get();
 
+        //Find the folder named with the VAT
+        const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
 
+        if (!matchingFolder) {
+            return res.status(404).json({ error: `FOLDER NOT FOUND'}});
+        }
+
+        //Fetch the contents of the VAT folder
+        const vatFolderContents = await client.api(`API id}`).get();
+
+        //Find the "ΦΜΥ" folder
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "ΦΜΥ");
+
+        if (!targetFolder) {
+            return res.status(404).json({ error: });
+        }
+
+        //Fetch the contents of the "ΦΜΥ" folder
+        const targetFolderContents = await client.api(`targetFolder id}/children`).get();
+
+        //Find the file in the "ΦΜΥ" folder
+        const fileItem = targetFolderContents.value.find(item => item.name === fileName);
+
+        if (!fileItem) {
+            return res.status(404).json({ error:});
+        }
+
+        //Get the download URL for the file
+        const downloadUrl = fileItem['@microsoft.graph.downloadUrl'];
+
+        if (!downloadUrl) {
+            return res.status(404).json({ error:  });
+        }
+
+        //Fetch the file data from OneDrive using Axios and stream it to the client
+        const encodedUrl = encodeURI(downloadUrl); // Ensure URL is encoded
+        const fileResponse = await axios({
+            url: encodedUrl,
+            method: 'GET',
+            responseType: 'stream',
+        });
+
+        //Set appropriate headers for file download
+        const fileExtension = fileName.split('.').pop().toLowerCase();
+        let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
+
+        if (fileExtension === 'pdf') {
+            res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+            contentType = 'application/pdf';
+        } else {
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+        }
+
+        res.setHeader('Content-Type', contentType);
+
+        //Pipe the file data to the response stream
+        fileResponse.data.pipe(res);
+
+    } catch (error) {
+        console.error('Error downloading file from OneDrive:', error);
+        return next(error);
+    }
+});
+
+app.get('/download-afm/:fileName', async (req, res, next) => {
+    const fileName = decodeURIComponent(req.params.fileName); // Decode the file name
+    const vat = req.cookies.vat?.toString(); // Fetch VAT from cookies
+
+    if (!vat) {
+        return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
+    }
+
+    try {
+        const accessToken = await getAccessToken(); 
+        const client = getAuthenticatedClient(accessToken);
+        const sharedFolderId = "SHARED FOLDER ID"; 
+        const folderResponse = await client.api(`sharedFolderId`).get();
+        const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
+
+        if (!matchingFolder) {
+            return res.status(404).json({ error:});
+        }
+
+        //Fetch the contents of the VAT folder
+        const vatFolderContents = await client.api(`Folderid}`).get();
+
+        //Find the "ΑΦΜ" folder
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "ΑΦΜ");
+
+        if (!targetFolder) {
+            return res.status(404).json({ error: });
+        }
+
+        //Fetch the contents of the "ΑΦΜ" folder
+        const targetFolderContents = await client.api(`Folder id}`).get();
+
+        //Find the file in the "ΑΦΜ" folder
+        const fileItem = targetFolderContents.value.find(item => item.name === fileName);
+
+        if (!fileItem) {
+            return res.status(404).json({ error: 'File not found in "ΑΦΜ"' });
+        }
+
+        //Get the download URL for the file
+        const downloadUrl = fileItem['@microsoft.graph.downloadUrl'];
+
+        if (!downloadUrl) {
+            return res.status(404).json({ FILE error:});
+        }
+
+        //Fetch the file data from OneDrive using Axios and stream it to the client
+        const encodedUrl = encodeURI(downloadUrl);
+        const fileResponse = await axios({
+            url: encodedUrl,
+            method: 'GET',
+            responseType: 'stream',
+        });
+
+        //Set appropriate headers for file download
+        const fileExtension = fileName.split('.').pop().toLowerCase();
+        let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
+
+        if (fileExtension === 'pdf') {
+            res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+            contentType = 'application/pdf';
+        } else {
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+        }
+
+        res.setHeader('Content-Type', contentType);
+
+        // Step 10: Pipe the file data to the response stream
+        fileResponse.data.pipe(res);
+
+    } catch (error) {
+        console.error('Error downloading file from OneDrive:', error);
+        return next(error);
+    }
+});
+
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
+
+// Start server
+const PORT = process.env.PORT;
+app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+});
