@@ -26,25 +26,25 @@
         </a>
     </div>
     <br>
-    <h2>Αποστολή Παραστατικών</h2>
+    <h2>send files</h2>
     <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
         <input type="file" id="fileInput" name="files" style="display: none;" onchange="displayFilePreviews(event)" multiple>
-        <button type="button" onclick="document.getElementById('fileInput').click();">Επιλογή Παραστατικών από συσκευή</button>
+        <button type="button" onclick="document.getElementById('fileInput').click();">select files from device to upload</button>
         <div id="selectedFilePreviews" class="file-preview-container"></div>
         <br><br>
-        <button type="button" id="cameraButton" onclick="toggleCamera()">📷 Κάμερα</button>
+        <button type="button" id="cameraButton" onclick="toggleCamera()">📷 Camera</button>
         <div id="videoContainer" style="display: none;">
             <video id="video" autoplay></video>
             <div class="frame" id="frame"></div>
         </div>
         <canvas id="canvas" style="display:none;"></canvas>
-        <button type="button" id="takePhotoButton" style="display:none;" onclick="takePhoto()">Λήψη Φωτογραφίας</button>
+        <button type="button" id="takePhotoButton" style="display:none;" onclick="takePhoto()">take photo</button>
         <button type="button" id="reloadCameraButton" style="display:none;" onclick="reloadCamera()">⭮</button>
         <img id="photoPreview" style="display: none;">
         <br><br>
         <div id="thumbnailContainer" class="thumbnail-container"></div> <!-- New thumbnail container -->
         <br><br>
-        <button type="button" onclick="submitForm()">Αποστολή</button>
+        <button type="button" onclick="submitForm()">upload to users folder</button>
         <br>
         <div id="errorMessage" style="display: none; color: red;">choose files to upload</div>
         <br><br>
@@ -450,8 +450,6 @@ function enhanceImage(flipped, canvas) {
     lookUpTable.delete();
     gammaCorrected.delete();
 }
-
-
 
         function sortPoints(points) {
             points.sort((a, b) => a.y - b.y);
