@@ -4,36 +4,84 @@
     <link rel="stylesheet" type="text/css" href="style.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>test </title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <title>myStirixis</title>
 </head>
 <body>
     <div class="menu-toggle" onclick="toggleMenu()">☰</div>
     <div class="menu">
-        <ul>
+        <ul><br>
             <br>
             <br>
             <br>
-            <br>
-          <li><a href="/index">list1</a></li>
-            <li><a href="/payroll">list2</a></li>
-            <li><a href="/invoice">list3</a></li>
-            <li><a href="/contact">list4</a></li>
+            <% if (showPayroll) { %>
+                <li><a href="/payroll">Μισθοδοσία</a></li>
+            <% } %>
+            <li><a href="/invoice">Αποστολή Εγγράφων</a></li>
+            <li><a href="/files">Αρχείο</a></li>
+            <li><a href="/contact">Επικοινωνία</a></li>
             <li><a href="/logout" class="logout-button">Logout</a></li>
         </ul>
     </div>
-
     <br>
     <br>
     <div class="logo-container">
         <a href="/index">
-            <img src="WebApp.png" alt="Logo" class="logo">
+            <img src="STIRIXIS.png" alt="Logo" class="logo">
         </a>
     </div>
-    <br>
-    <h2>test <%= vat %></h2>
-    <div class="logo-container">
-        <img src="/underconstruction.jpg" alt="logo" class="logo">
+    <h1 class="welcome-message">welcome message for the app <%= vat %></h1>
+    <div class="button-container">
+        <h3> FMY</h3>
+        
+        <button onclick="window.location.href='/fmy'" class="redirect-button">
+            FMY FOLDER
+        </button>
+        <h3>afm</h3>
+        <button onclick="window.location.href='/afm'" class="redirect-button">
+          AFM FOLDER
+        </button>
     </div>
-    
+    <div id="bottom-icon-container">
+        <a href="/index" id="home-icon">
+            <img src="homepage_icon.png" alt="Home" />
+        </a>
+    </div>
+    <script>
+        let logoutTimer;
+
+        function startLogoutTimer() {
+            logoutTimer = setTimeout(logout, 5 * 60 * 1000); // 5 minutes
+        }
+
+        function resetLogoutTimer() {
+            clearTimeout(logoutTimer);
+            startLogoutTimer();
+        }
+
+        function logout() {
+            window.location.href = '/logout';
+        }
+
+        document.addEventListener('mousemove', resetLogoutTimer);
+        document.addEventListener('keypress', resetLogoutTimer);
+        startLogoutTimer();
+
+        function toggleMenu() {
+    const menu = document.querySelector('.menu');
+    menu.classList.toggle('open');
+}
+
+// Close the menu when clicking outside of it
+document.addEventListener('click', (event) => {
+    const menu = document.querySelector('.menu');
+    const menuToggle = document.querySelector('.menu-toggle');
+
+    if (menu.classList.contains('open') && !menu.contains(event.target) && !menuToggle.contains(event.target)) {
+        menu.classList.remove('open');
+    }
+});
+    </script>
 </body>
 </html>
