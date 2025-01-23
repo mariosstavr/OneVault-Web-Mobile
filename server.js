@@ -413,7 +413,7 @@ app.post('/upload', upload.array('files', 10), async (req, res, next) => {
 
         // Get the contents of the users folder
         const vatFolderContents = await client.api(`id users folder/items/${vatFolder.id}/children`).get();
-        let targetFolder = vatFolderContents.value.find(folder => folder.name === "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ");
+        let targetFolder = vatFolderContents.value.find(folder => folder.name === "Upload user Folder");
 
         // Create "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ" folder if it doesn't exist
         if (!targetFolder) {
