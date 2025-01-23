@@ -241,7 +241,7 @@ app.get('/get-fmy-folder-structure/:vat', async (req, res, next) => {
         const accessToken = await getAccessToken();
         const client = getAuthenticatedClient(accessToken);
 
-        const sharedFolderId = "012NZPIPVPAH5TPZZ4G5HJTRK26AZUC4BE"; // SharedFolder ID
+        const sharedFolderId = "5TPZZ4G5HJTC4BE"; // ONE DRIVE FOLDER ID
         const response = await client.api(`FOLDER ID ${sharedFolderId}/children`).get();
 
         // Find the matching folder using VAT
@@ -275,6 +275,8 @@ app.get('/get-fmy-folder-structure/:vat', async (req, res, next) => {
         return next(error);
     }
 });
+
+// THIS IS FOR ONEDRIVE SUBFOLDER CALLING afm inside the shared folder 
 app.get('/get-afm-folder-structure/:vat', async (req, res, next) => {
     const vat = req.params.vat;
     if (!vat) {
@@ -291,7 +293,7 @@ app.get('/get-afm-folder-structure/:vat', async (req, res, next) => {
         
         const matchingFolder = response.value.find(folder => folder.name.endsWith(vat));
         if (!matchingFolder) {
-            return res.status(404).json({ error: `No folder found for VAT: ${vat}` });
+            return res.status(404).json({ error: `No folder found for unique number: ${vat}` });
         }
 
         
@@ -307,7 +309,7 @@ app.get('/get-afm-folder-structure/:vat', async (req, res, next) => {
         const formattedData = targetFolderContents.value.map(item => ({
             name: item.name,
             type: item.folder ? 'folder' : 'file',
-            lastModifiedDateTime: item.lastModifiedDateTime || 'Unknown', // Ensure modified date is passed
+            lastModifiedDateTime: item.lastModifiedDateTime || 'Unknown', 
         }));
 
         res.json(formattedData);
@@ -316,7 +318,7 @@ app.get('/get-afm-folder-structure/:vat', async (req, res, next) => {
         return next(error);
     }
 });
-//CHOOSE WHICH USERS CAN SEE A PAGE IN THIS PROJECT IF THE USER HAS 1 ON DATABASE ON PAYROLL COULD SEE THE payroll page
+//CHOOSE WHICH USERS CAN SEE A PAGE IN THIS PROJECT IF THE USER IN THIS SITUATION IS THE isPayroll if is 1 show the selection if 0 don't  
 app.get('/contact', (req, res) => {
     const vat = req.cookies.vat;
     const showPayroll = req.cookies.isPayroll === '1';
@@ -364,7 +366,7 @@ app.post('/submit_contact', async (req, res, next) => {
     }
 });
 
-// Multer configuration for uploads
+// Multer configuration for uploads and allowed files in this project i use image and txt formats but you can add whatever you want
 const storage = multer.memoryStorage();
 const upload = multer({
     storage,
@@ -375,7 +377,7 @@ const upload = multer({
             'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'text/csv', 'text/html',
         ];
-        if (file.mimetype === 'application/zip') return cb(null, false); // Zip files are not allowed
+        if (file.mimetype === 'application/zip') return cb(null, false); 
         cb(null, allowedTypes.includes(file.mimetype));
     },
     limits: { fileSize: 10 * 1024 * 1024 }
@@ -389,7 +391,7 @@ app.post('/upload', upload.array('files', 10), async (req, res, next) => {
     }
 
     if (!req.files || req.files.length === 0) {
-        return res.status(400).send('<script>alert("Δεν επιλέχθηκαν αρχεία. Επιλέξτε αρχεία για να συνεχίσετε."); window.location.href="/invoice";</script>');
+        return res.status(400).send('<script>alert("select Files to upload ;)"); window.location.href="/invoice";</script>');
     }
 
     try {
@@ -422,7 +424,7 @@ app.post('/upload', upload.array('files', 10), async (req, res, next) => {
             });
         }
 
-        //Upload files to "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ"
+        //Upload files to  folder we want calling in this example "Upload user Folder"
         await Promise.all(req.files.map(async (file) => {
             const fileStream = Buffer.from(file.buffer);
             const fileName = file.originalname;
@@ -457,13 +459,13 @@ app.get('/download/:fileName', async (req, res, next) => {
         }
 
         const vatFolderContents = await client.api(`folder id}/children`).get();
-        const targetFolder = vatFolderContents.value.find(folder => folder.name === "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ");
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "Upload user Folder");
 
         if (!targetFolder) {
             return res.status(404).json({ error: `NOT FOUND FOLDER${vat}` });
         }
   
-        const targetFolderContents = await client.api(`/drives/b!1HqcWAui8USuWF7C_19xQtfLSlT3AvpEnsUcng_5M4OGZwdDJDUoSpoVtBrW_z-I/items/${targetFolder.id}/children`).get();
+        const targetFolderContents = await client.api(`/drives/the folder id we want/items/${targetFolder.id}/children`).get();
         const fileItem = targetFolderContents.value.find(item => item.name === fileName);
 
         if (!fileItem) {
@@ -500,17 +502,17 @@ app.get('/download/:fileName', async (req, res, next) => {
         return next(error);
     }
 });
-
+//Decode the link for the files to could preview or download
 app.get('/download-fmy/:fileName', async (req, res, next) => {
     const fileName = decodeURIComponent(req.params.fileName); // Decode the file name
-    const vat = req.cookies.vat?.toString(); // Fetch VAT from cookies
+    const vat = req.cookies.vat?.toString(); // Fetch unique number for each user from cookies
 
     if (!vat) {
         return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
     }
 
     try {
-        const accessToken = await getAccessToken(); // Get the app-level access token
+        const accessToken = await getAccessToken(); 
         const client = getAuthenticatedClient(accessToken);
 
         //Get the SharedFolder's contents
@@ -526,67 +528,14 @@ app.get('/download-fmy/:fileName', async (req, res, next) => {
 
         //Fetch the contents of the VAT folder
         const vatFolderContents = await client.api(`API id}`).get();
-
-        //Find the "ΦΜΥ" folder
-        const targetFolder = vatFolderContents.value.find(folder => folder.name === "ΦΜΥ");
-
-        if (!targetFolder) {
-            return res.status(404).json({ error: });
-        }
-
-        //Fetch the contents of the "ΦΜΥ" folder
-        const targetFolderContents = await client.api(`targetFolder id}/children`).get();
-
-        //Find the file in the "ΦΜΥ" folder
-        const fileItem = targetFolderContents.value.find(item => item.name === fileName);
-
-        if (!fileItem) {
-            return res.status(404).json({ error:});
-        }
-
-        //Get the download URL for the file
-        const downloadUrl = fileItem['@microsoft.graph.downloadUrl'];
-
-        if (!downloadUrl) {
-            return res.status(404).json({ error:  });
-        }
-
-        //Fetch the file data from OneDrive using Axios and stream it to the client
-        const encodedUrl = encodeURI(downloadUrl); // Ensure URL is encoded
-        const fileResponse = await axios({
-            url: encodedUrl,
-            method: 'GET',
-            responseType: 'stream',
-        });
-
-        //Set appropriate headers for file download
-        const fileExtension = fileName.split('.').pop().toLowerCase();
-        let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
-
-        if (fileExtension === 'pdf') {
-            res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-            contentType = 'application/pdf';
-        } else {
-            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-        }
-
-        res.setHeader('Content-Type', contentType);
-
-        //Pipe the file data to the response stream
-        fileResponse.data.pipe(res);
-
-    } catch (error) {
-        console.error('Error downloading file from OneDrive:', error);
-        return next(error);
-    }
-});
+        
 
 app.get('/download-afm/:fileName', async (req, res, next) => {
     const fileName = decodeURIComponent(req.params.fileName); // Decode the file name
-    const vat = req.cookies.vat?.toString(); // Fetch VAT from cookies
+    const vat = req.cookies.vat?.toString(); // Fetch unique number from cookies
 
     if (!vat) {
-        return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
+        return res.status(403).json({ error: 'Forbidden: No unique number in cookies' });
     }
 
     try {
@@ -663,8 +612,3 @@ app.use((req, res, next) => {
     next();
 });
 
-// Start server
-const PORT = process.env.PORT;
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-});
