@@ -49,10 +49,11 @@
         </a>
     </div>
     <script>
+//with this the app logout the user automatic after 5 minutes if user stop using it.
         let logoutTimer;
 
         function startLogoutTimer() {
-            logoutTimer = setTimeout(logout, 5 * 60 * 1000); // 5 minutes
+            logoutTimer = setTimeout(logout, 5 * 60 * 1000); 
         }
 
         function resetLogoutTimer() {
@@ -73,7 +74,7 @@
     menu.classList.toggle('open');
 }
 
-// Close the menu when clicking outside of it
+// this close the toggle menu when click anywhere else from the menu
 document.addEventListener('click', (event) => {
     const menu = document.querySelector('.menu');
     const menuToggle = document.querySelector('.menu-toggle');
