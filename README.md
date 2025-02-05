@@ -1,3 +1,3 @@
-IN THIS PROJECT WE HAVE A DATABASE ON FIREBASE THAT CONTENTS A UNIQUE NUMBER. EACH USER HAS HIS FOLDER AND
- THE FOLDER FINDS AUTOMATIC WHEN THE FOLDER HAS IN NAME THIS UNIQUE FOLDER INSIDE HAS SUBFOLDER THAT USER CAN SEE AND DOWNLOAD.
- I HAVE CREATE FUNCTIONS TO UPLOAD DIRECTLY FROM CAMERA OR DEVICE. CAN SEND MAIL FROM THE APP TO THE MAIL SERVER YOU WANT WITH SENDER THE EMAIL FROM THE DATABASE.
+This web application is built with Node.js, Express, and Firebase to manage user data and notifications. It integrates with Microsoft Graph API and OneDrive for file storage, and Azure for cloud services.
+Nodemailer is used for sending email notifications, while WNS handles push notifications. The app allows users to securely log in, sync data with OneDrive
+and manage notifications stored in Firebase. The front-end is crafted using HTML, CSS, JavaScript, and SCSS, ensuring a responsive and dynamic user experience.
