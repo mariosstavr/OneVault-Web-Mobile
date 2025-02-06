@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-    <title>myStirixis</title>
+    <title>PROJECT1</title>
 </head>
 <body>
     <div class="menu-toggle" onclick="toggleMenu()">☰</div>
@@ -16,11 +16,11 @@
             <br>
             <br>
             <% if (showPayroll) { %>
-                <li><a href="/payroll">Μισθοδοσία</a></li>
+                <li><a href="/payroll">Payroll</a></li>
             <% } %>
-            <li><a href="/invoice">Αποστολή Εγγράφων</a></li>
-            <li><a href="/files">Αρχείο</a></li>
-            <li><a href="/contact">Επικοινωνία</a></li>
+            <li><a href="/invoice">Send Documents</a></li>
+            <li><a href="/files">Files</a></li>
+            <li><a href="/contact">Contact</a></li>
             <li><a href="/logout" class="logout-button">Logout</a></li>
         </ul>
     </div>
@@ -28,61 +28,68 @@
     <br>
     <div class="logo-container">
         <a href="/index">
-            <img src="STIRIXIS.png" alt="Logo" class="logo">
+            <img src="PROJECT1.png" alt="Logo" class="logo">
         </a>
     </div>
-    <h1 class="welcome-message">welcome message for the app <%= vat %></h1>
+    <h1 class="welcome-message">Welcome to PROJECT1, <%= vat %></h1>
     <div class="button-container">
         <h3> FMY</h3>
         
         <button onclick="window.location.href='/fmy'" class="redirect-button">
-            FMY FOLDER
+            FMY Folder
         </button>
-        <h3>afm</h3>
-        <button onclick="window.location.href='/afm'" class="redirect-button">
-          AFM FOLDER
-        </button>
+        <h3>AFM</h3>
+            </a>
+        </div>
+        
+        <button class="view-toggle" onclick="toggleView()" aria-label="Toggle View">Details</button>
+
+        <h2>Payroll Tax</h2>
+
+        <div id="error-message" class="error-message" style="display: none;"></div>
+
+        <div class="file-container">
+            <div class="file-grid" id="file-grid"></div>
+                <div class="file-details" id="file-details">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th id="name-header" onclick="sortTable('name')">Name <span class="sort-arrow"></span></th>
+                            <th id="date-header" onclick="sortTable('date')">Last Modified Date <span class="sort-arrow"></span></th>
+                            <th>Download</th>
+                        </tr>
+                    </thead>
+                    <tbody id="file-details-body"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
+
+    <div id="modal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()" aria-label="Close Modal">&times;</button>
+
+            <canvas id="pdfCanvas" class="preview-pdf" style="display:none; width:100%;"></canvas>
+
+            <div id="pdfNavigation" style="display: none;">
+                <button id="prevPageButton" aria-label="Previous Page"> &lt;- </button>
+                <span>Page: <span id="pageNumber"></span> / <span id="totalPages"></span></span>
+                <button id="nextPageButton" aria-label="Next Page"> -&gt; </button>
+            </div>
+
+            <div id="modalContent"></div> 
+            <img id="modalImage" class="modal-image" style="display:none; width:100%;" alt="Preview Image" />
+        </div>
+    </div>
+
+    <div class="loading-spinner" aria-label="Loading" role="status"></div>
+
     <div id="bottom-icon-container">
         <a href="/index" id="home-icon">
             <img src="homepage_icon.png" alt="Home" />
         </a>
     </div>
-    <script>
-//with this the app logout the user automatic after 5 minutes if user stop using it.
-        let logoutTimer;
-
-        function startLogoutTimer() {
-            logoutTimer = setTimeout(logout, 5 * 60 * 1000); 
-        }
-
-        function resetLogoutTimer() {
-            clearTimeout(logoutTimer);
-            startLogoutTimer();
-        }
-
-        function logout() {
-            window.location.href = '/logout';
-        }
-
-        document.addEventListener('mousemove', resetLogoutTimer);
-        document.addEventListener('keypress', resetLogoutTimer);
-        startLogoutTimer();
-
-        function toggleMenu() {
-    const menu = document.querySelector('.menu');
-    menu.classList.toggle('open');
-}
-
-// this close the toggle menu when click anywhere else from the menu
-document.addEventListener('click', (event) => {
-    const menu = document.querySelector('.menu');
-    const menuToggle = document.querySelector('.menu-toggle');
-
-    if (menu.classList.contains('open') && !menu.contains(event.target) && !menuToggle.contains(event.target)) {
-        menu.classList.remove('open');
-    }
-});
-    </script>
+    
+    <script src="/js/main.js" defer></script>
 </body>
 </html>
