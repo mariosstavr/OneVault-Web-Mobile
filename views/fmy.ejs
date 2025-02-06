@@ -1,1 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROJECT1</title>
+<meta name="description" content="View and manage files in MyFiles">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/css/files.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js" defer></script>
+</head>
 
+<body>
+    
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+   
+    <div class="menu">
+        <ul>
+        <br>
+        <br>
+        <br>
+        <br>
+            <li><a href="/index">Home</a></li>
+            <% if (showPayroll) { %>
+                <li><a href="/payroll">Payroll</a></li>
+            <% } %>
+            <li><a href="/invoice">Send Documents</a></li>
+            <li><a href="/files">Files</a></li>
+            <li><a href="/contact">Contact</a></li>
+            <li><a href="/logout" class="logout-button">Logout</a></li>
+        </ul>
+    </div>
+
+   
+    <div class="page-container">
+       
+        <div class="logo-container">
+            <a href="/index">
+                <img src="PROJECT1.png" alt="Logo" class="logo">
+            </a>
+        </div>
+        
+        <button class="view-toggle" onclick="toggleView()" aria-label="Toggle View">Details</button>
+
+        <h2>Payroll Tax</h2>
+
+        <div id="error-message" class="error-message" style="display: none;"></div>
+
+        <div class="file-container">
+            <div class="file-grid" id="file-grid"></div>
+                <div class="file-details" id="file-details">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th id="name-header" onclick="sortTable('name')">Name <span class="sort-arrow"></span></th>
+                            <th id="date-header" onclick="sortTable('date')">Last Modified Date <span class="sort-arrow"></span></th>
+                            <th>Download</th>
+                        </tr>
+                    </thead>
+                    <tbody id="file-details-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()" aria-label="Close Modal">&times;</button>
+
+            <canvas id="pdfCanvas" class="preview-pdf" style="display:none; width:100%;"></canvas>
+
+            <div id="pdfNavigation" style="display: none;">
+                <button id="prevPageButton" aria-label="Previous Page"> &lt;- </button>
+                <span>Page: <span id="pageNumber"></span> / <span id="totalPages"></span></span>
+                <button id="nextPageButton" aria-label="Next Page"> -&gt; </button>
+            </div>
+
+            <div id="modalContent"></div> 
+            <img id="modalImage" class="modal-image" style="display:none; width:100%;" alt="Preview Image" />
+        </div>
+    </div>
+
+    <div class="loading-spinner" aria-label="Loading" role="status"></div>
+
+    <div id="bottom-icon-container">
+        <a href="/index" id="home-icon">
+            <img src="homepage_icon.png" alt="Home" />
+        </a>
+    </div>
+    
+    <script src="/js/main.js" defer></script>
+</body>
+</html>
