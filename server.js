@@ -397,31 +397,86 @@ app.get('/download/:fileName', async (req, res, next) => {
 });
 
 app.get('/download-fmy/:fileName', async (req, res, next) => {
-    const fileName = decodeURIComponent(req.params.fileName); 
-    const vat = req.cookies.vat?.toString(); 
+    const fileName = decodeURIComponent(req.params.fileName); // Decode the file name
+    const vat = req.cookies.vat?.toString(); // Fetch VAT from cookies
 
     if (!vat) {
         return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
     }
 
     try {
-        const accessToken = await getAccessToken(); 
+        const accessToken = await getAccessToken(); // Get the app-level access token
         const client = getAuthenticatedClient(accessToken);
 
-        
-        const sharedFolderId = "SHARED FOLDER ID"; 
-        const folderResponse = await client.api(`API`).get();
+        // Get the SharedFolder's contents (Replace with actual SharedFolder ID)
+        const sharedFolderId = "YOUR_SHARED_FOLDER_ID"; 
+        const folderResponse = await client.api(`/drives/YOUR_DRIVE_ID/items/${sharedFolderId}/children`).get();
 
-        //Find the folder named with the VAT
+        // Find the folder named with the VAT
         const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
 
         if (!matchingFolder) {
-            return res.status(404).json({ error: `FOLDER NOT FOUND'}});
+            return res.status(404).json({ error: `Folder for VAT:${vat} not found. Contact administrators.` });
         }
 
-        const vatFolderContents = await client.api(`API id}`).get();
-        
-}
+        // Fetch the contents of the VAT folder
+        const vatFolderContents = await client.api(`/drives/YOUR_DRIVE_ID/items/${matchingFolder.id}/children`).get();
+
+        // Find the "FMY" folder
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "FMY");
+
+        if (!targetFolder) {
+            return res.status(404).json({ error: 'An error occurred, please try again later.' });
+        }
+
+        // Fetch the contents of the "FMY" folder
+        const targetFolderContents = await client.api(`/drives/YOUR_DRIVE_ID/items/${targetFolder.id}/children`).get();
+
+        // Find the file in the "FMY" folder
+        const fileItem = targetFolderContents.value.find(item => item.name === fileName);
+
+        if (!fileItem) {
+            return res.status(404).json({ error: 'An error occurred, please try again later.' });
+        }
+
+        // Get the download URL for the file
+        const downloadUrl = fileItem['@microsoft.graph.downloadUrl'];
+
+        if (!downloadUrl) {
+            return res.status(404).json({ error: 'Cannot download this file.' });
+        }
+
+        // Fetch the file data from OneDrive using Axios and stream it to the client
+        const encodedUrl = encodeURI(downloadUrl); 
+        const fileResponse = await axios({
+            url: encodedUrl,
+            method: 'GET',
+            responseType: 'stream',
+        });
+
+        // Set appropriate headers for file download
+        const fileExtension = fileName.split('.').pop().toLowerCase();
+        let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
+
+        if (fileExtension === 'pdf') {
+            res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+            contentType = 'application/pdf';
+        } else {
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+        }
+
+        res.setHeader('Content-Type', contentType);
+
+        // Pipe the file data to the response stream
+        fileResponse.data.pipe(res);
+
+    } catch (error) {
+        console.error('Error downloading file from OneDrive:', error);
+        return next(error);
+    }
+});
+
+
 app.get('/download-afm/:fileName', async (req, res, next) => {
     const fileName = decodeURIComponent(req.params.fileName); // Decode the file name
     const vat = req.cookies.vat?.toString(); // Fetch unique number from cookies
@@ -611,4 +666,8 @@ app.use((req, res, next) => {
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     next();
 });
-
+// Start server
+const PORT = process.env.PORT || //PORT ;
+app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+});
