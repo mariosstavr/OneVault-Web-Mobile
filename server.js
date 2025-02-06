@@ -61,19 +61,19 @@ const getAccessToken = async () => {
     }
 };
 
-//initialize Microsoft Graph client
+
 const getAuthenticatedClient = (accessToken) => Client.init({
     authProvider: (done) => done(null, accessToken),
 });
 
-//fetch data from OneDrive
+
 const fetchOneDriveData = async (endpoint) => {
     const accessToken = await getAccessToken();
     const client = getAuthenticatedClient(accessToken);
     return await client.api(endpoint).get();
 };
 
-//generate directory tree
+
 const getDirectoryTree = (files) => {
     const tree = {};
     files.forEach(file => {
@@ -91,7 +91,7 @@ const getDirectoryTree = (files) => {
     return tree;
 };
 
-// Centralized error-handling middleware
+
 app.use((err, req, res, next) => {
     console.error('Error:', err.message);
     res.status(err.status || 500).json({ success: false, message: err.message || 'Internal server error' });
@@ -104,11 +104,11 @@ app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cookieParser());
 
-// Set the views directory and the view engine
+
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-// Ensure UTF-8 encoding for all responses
+
 app.use((req, res, next) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     next();
@@ -276,7 +276,7 @@ app.get('/get-fmy-folder-structure/:vat', async (req, res, next) => {
     }
 });
 
-// THIS IS FOR ONEDRIVE SUBFOLDER CALLING afm inside the shared folder 
+
 app.get('/get-afm-folder-structure/:vat', async (req, res, next) => {
     const vat = req.params.vat;
     if (!vat) {
@@ -318,7 +318,7 @@ app.get('/get-afm-folder-structure/:vat', async (req, res, next) => {
         return next(error);
     }
 });
-//CHOOSE WHICH USERS CAN SEE A PAGE IN THIS PROJECT IF THE USER IN THIS SITUATION IS THE isPayroll if is 1 show the selection if 0 don't  
+
 app.get('/contact', (req, res) => {
     const vat = req.cookies.vat;
     const showPayroll = req.cookies.isPayroll === '1';
@@ -332,7 +332,7 @@ app.get('/contact', (req, res) => {
     res.render('contact', { vat, showPayroll });
 });
 
-// Email took from Database the email and sends with this as sender 
+
 app.post('/submit_contact', async (req, res, next) => {
     const message = req.body.message;
     const vat = req.cookies.vat;
@@ -366,7 +366,7 @@ app.post('/submit_contact', async (req, res, next) => {
     }
 });
 
-// Multer configuration for uploads and allowed files in this project i use image and txt formats but you can add whatever you want
+
 const storage = multer.memoryStorage();
 const upload = multer({
     storage,
@@ -403,7 +403,7 @@ app.post('/upload', upload.array('files', 10), async (req, res, next) => {
         const folderResponse = await client.api(`folder id/items/${sharedFolderId}/children`).get();
         let vatFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
 
-        // Step 2: Create the VAT folder if it doesn't exist
+        
         if (!vatFolder) {
             vatFolder = await client.api(`SharedFolder ID/${vat}:/children`).post({
                 folder: {},
@@ -411,11 +411,11 @@ app.post('/upload', upload.array('files', 10), async (req, res, next) => {
             });
         }
 
-        // Get the contents of the users folder
+        
         const vatFolderContents = await client.api(`id users folder/items/${vatFolder.id}/children`).get();
         let targetFolder = vatFolderContents.value.find(folder => folder.name === "Upload user Folder");
 
-        // Create "00 ΑΡΧΕΙΟ ΠΕΛΑΤΗ" folder if it doesn't exist
+        
         if (!targetFolder) {
             targetFolder = await client.api(`/${vatFolder.id}/children`).post({
                 name: "name_folder",
@@ -424,7 +424,7 @@ app.post('/upload', upload.array('files', 10), async (req, res, next) => {
             });
         }
 
-        //Upload files to  folder we want calling in this example "Upload user Folder"
+        
         await Promise.all(req.files.map(async (file) => {
             const fileStream = Buffer.from(file.buffer);
             const fileName = file.originalname;
@@ -476,7 +476,7 @@ app.get('/download/:fileName', async (req, res, next) => {
             return res.status(404).json({ error: 'FALSE ' });
         }
 
-        //Fetch the file data from OneDrive using Axios and stream it to the client
+ 
         const encodedUrl = encodeURI(downloadUrl);
         const fileResponse = await axios({
             url: encodedUrl,
@@ -484,7 +484,7 @@ app.get('/download/:fileName', async (req, res, next) => {
             responseType: 'stream',
         });
 
-        //Set appropriate headers for file download
+       
         const fileExtension = fileName.split('.').pop().toLowerCase();
         let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
 
@@ -502,10 +502,10 @@ app.get('/download/:fileName', async (req, res, next) => {
         return next(error);
     }
 });
-//Decode the link for the files to could preview or download
+
 app.get('/download-fmy/:fileName', async (req, res, next) => {
-    const fileName = decodeURIComponent(req.params.fileName); // Decode the file name
-    const vat = req.cookies.vat?.toString(); // Fetch unique number for each user from cookies
+    const fileName = decodeURIComponent(req.params.fileName); 
+    const vat = req.cookies.vat?.toString(); 
 
     if (!vat) {
         return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
@@ -515,8 +515,8 @@ app.get('/download-fmy/:fileName', async (req, res, next) => {
         const accessToken = await getAccessToken(); 
         const client = getAuthenticatedClient(accessToken);
 
-        //Get the SharedFolder's contents
-        const sharedFolderId = "SHARED FOLDER ID"; // SharedFolder ID
+        
+        const sharedFolderId = "SHARED FOLDER ID"; 
         const folderResponse = await client.api(`API`).get();
 
         //Find the folder named with the VAT
@@ -597,7 +597,7 @@ app.get('/download-afm/:fileName', async (req, res, next) => {
 
         res.setHeader('Content-Type', contentType);
 
-        // Step 10: Pipe the file data to the response stream
+        
         fileResponse.data.pipe(res);
 
     } catch (error) {
