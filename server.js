@@ -332,6 +332,171 @@ app.get('/contact', (req, res) => {
     res.render('contact', { vat, showPayroll });
 });
 
+app.get('/download/:fileName', async (req, res, next) => {
+    const fileName = decodeURIComponent(req.params.fileName); 
+    const vat = req.cookies.vat?.toString(); 
+
+    if (!vat) {
+        return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
+    }
+
+    try {
+        const accessToken = await getAccessToken(); 
+        const client = getAuthenticatedClient(accessToken);
+        const sharedFolderId = "sharedFolderId"; 
+        const folderResponse = await client.api(`api one drive/${sharedFolderId}/children`).get();
+        const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
+
+        if (!matchingFolder) {
+            return res.status(404).json({ error: `folder not found${vat}. });
+        }
+
+        const vatFolderContents = await client.api(`folder id}/children`).get();
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "Upload user Folder");
+
+        if (!targetFolder) {
+            return res.status(404).json({ error: `NOT FOUND FOLDER${vat}` });
+        }
+  
+        const targetFolderContents = await client.api(`/drives/the folder id we want/items/${targetFolder.id}/children`).get();
+        const fileItem = targetFolderContents.value.find(item => item.name === fileName);
+
+        if (!fileItem) {
+            return res.status(404).json({ error: `FOLDER NOT FOUND${vat}. ` });
+        }
+        const downloadUrl = fileItem['@microsoft.graph.downloadUrl'];
+        if (!downloadUrl) {
+            return res.status(404).json({ error: 'FALSE ' });
+        }
+
+ 
+        const encodedUrl = encodeURI(downloadUrl);
+        const fileResponse = await axios({
+            url: encodedUrl,
+            method: 'GET',
+            responseType: 'stream',
+        });
+
+       
+        const fileExtension = fileName.split('.').pop().toLowerCase();
+        let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
+
+        if (fileExtension === 'pdf') {
+            res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+            contentType = 'application/pdf';
+        } else {
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+        }
+        res.setHeader('Content-Type', contentType);
+        fileResponse.data.pipe(res);
+
+    } catch (error) {
+        console.error('Error downloading file from OneDrive:', error);
+        return next(error);
+    }
+});
+
+app.get('/download-fmy/:fileName', async (req, res, next) => {
+    const fileName = decodeURIComponent(req.params.fileName); 
+    const vat = req.cookies.vat?.toString(); 
+
+    if (!vat) {
+        return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
+    }
+
+    try {
+        const accessToken = await getAccessToken(); 
+        const client = getAuthenticatedClient(accessToken);
+
+        
+        const sharedFolderId = "SHARED FOLDER ID"; 
+        const folderResponse = await client.api(`API`).get();
+
+        //Find the folder named with the VAT
+        const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
+
+        if (!matchingFolder) {
+            return res.status(404).json({ error: `FOLDER NOT FOUND'}});
+        }
+
+        const vatFolderContents = await client.api(`API id}`).get();
+        
+}
+app.get('/download-afm/:fileName', async (req, res, next) => {
+    const fileName = decodeURIComponent(req.params.fileName); // Decode the file name
+    const vat = req.cookies.vat?.toString(); // Fetch unique number from cookies
+
+    if (!vat) {
+        return res.status(403).json({ error: 'Forbidden: No unique number in cookies' });
+    }
+
+    try {
+        const accessToken = await getAccessToken(); 
+        const client = getAuthenticatedClient(accessToken);
+        const sharedFolderId = "SHARED FOLDER ID"; 
+        const folderResponse = await client.api(`sharedFolderId`).get();
+        const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
+
+        if (!matchingFolder) {
+            return res.status(404).json({ error:});
+        }
+
+        //Fetch the contents of the VAT folder
+        const vatFolderContents = await client.api(`Folderid}`).get();
+
+        //Find the "ΑΦΜ" folder
+        const targetFolder = vatFolderContents.value.find(folder => folder.name === "ΑΦΜ");
+
+        if (!targetFolder) {
+            return res.status(404).json({ error: });
+        }
+
+        //Fetch the contents of the "ΑΦΜ" folder
+        const targetFolderContents = await client.api(`Folder id}`).get();
+
+        //Find the file in the "ΑΦΜ" folder
+        const fileItem = targetFolderContents.value.find(item => item.name === fileName);
+
+        if (!fileItem) {
+            return res.status(404).json({ error: 'File not found in "ΑΦΜ"' });
+        }
+
+        //Get the download URL for the file
+        const downloadUrl = fileItem['@microsoft.graph.downloadUrl'];
+
+        if (!downloadUrl) {
+            return res.status(404).json({ FILE error:});
+        }
+
+        //Fetch the file data from OneDrive using Axios and stream it to the client
+        const encodedUrl = encodeURI(downloadUrl);
+        const fileResponse = await axios({
+            url: encodedUrl,
+            method: 'GET',
+            responseType: 'stream',
+        });
+
+        //Set appropriate headers for file download
+        const fileExtension = fileName.split('.').pop().toLowerCase();
+        let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
+
+        if (fileExtension === 'pdf') {
+            res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+            contentType = 'application/pdf';
+        } else {
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+        }
+
+        res.setHeader('Content-Type', contentType);
+
+        
+        fileResponse.data.pipe(res);
+
+    } catch (error) {
+        console.error('Error downloading file from OneDrive:', error);
+        return next(error);
+    }
+});
 
 app.post('/submit_contact', async (req, res, next) => {
     const message = req.body.message;
@@ -439,172 +604,7 @@ app.post('/upload', upload.array('files', 10), async (req, res, next) => {
 
 const axios = require('axios');
 
-app.get('/download/:fileName', async (req, res, next) => {
-    const fileName = decodeURIComponent(req.params.fileName); 
-    const vat = req.cookies.vat?.toString(); 
 
-    if (!vat) {
-        return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
-    }
-
-    try {
-        const accessToken = await getAccessToken(); 
-        const client = getAuthenticatedClient(accessToken);
-        const sharedFolderId = "sharedFolderId"; 
-        const folderResponse = await client.api(`api one drive/${sharedFolderId}/children`).get();
-        const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
-
-        if (!matchingFolder) {
-            return res.status(404).json({ error: `folder not found${vat}. });
-        }
-
-        const vatFolderContents = await client.api(`folder id}/children`).get();
-        const targetFolder = vatFolderContents.value.find(folder => folder.name === "Upload user Folder");
-
-        if (!targetFolder) {
-            return res.status(404).json({ error: `NOT FOUND FOLDER${vat}` });
-        }
-  
-        const targetFolderContents = await client.api(`/drives/the folder id we want/items/${targetFolder.id}/children`).get();
-        const fileItem = targetFolderContents.value.find(item => item.name === fileName);
-
-        if (!fileItem) {
-            return res.status(404).json({ error: `FOLDER NOT FOUND${vat}. ` });
-        }
-        const downloadUrl = fileItem['@microsoft.graph.downloadUrl'];
-        if (!downloadUrl) {
-            return res.status(404).json({ error: 'FALSE ' });
-        }
-
- 
-        const encodedUrl = encodeURI(downloadUrl);
-        const fileResponse = await axios({
-            url: encodedUrl,
-            method: 'GET',
-            responseType: 'stream',
-        });
-
-       
-        const fileExtension = fileName.split('.').pop().toLowerCase();
-        let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
-
-        if (fileExtension === 'pdf') {
-            res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-            contentType = 'application/pdf';
-        } else {
-            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-        }
-        res.setHeader('Content-Type', contentType);
-        fileResponse.data.pipe(res);
-
-    } catch (error) {
-        console.error('Error downloading file from OneDrive:', error);
-        return next(error);
-    }
-});
-
-app.get('/download-fmy/:fileName', async (req, res, next) => {
-    const fileName = decodeURIComponent(req.params.fileName); 
-    const vat = req.cookies.vat?.toString(); 
-
-    if (!vat) {
-        return res.status(403).json({ error: 'Forbidden: No VAT in cookies' });
-    }
-
-    try {
-        const accessToken = await getAccessToken(); 
-        const client = getAuthenticatedClient(accessToken);
-
-        
-        const sharedFolderId = "SHARED FOLDER ID"; 
-        const folderResponse = await client.api(`API`).get();
-
-        //Find the folder named with the VAT
-        const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
-
-        if (!matchingFolder) {
-            return res.status(404).json({ error: `FOLDER NOT FOUND'}});
-        }
-
-        //Fetch the contents of the VAT folder
-        const vatFolderContents = await client.api(`API id}`).get();
-        
-
-app.get('/download-afm/:fileName', async (req, res, next) => {
-    const fileName = decodeURIComponent(req.params.fileName); // Decode the file name
-    const vat = req.cookies.vat?.toString(); // Fetch unique number from cookies
-
-    if (!vat) {
-        return res.status(403).json({ error: 'Forbidden: No unique number in cookies' });
-    }
-
-    try {
-        const accessToken = await getAccessToken(); 
-        const client = getAuthenticatedClient(accessToken);
-        const sharedFolderId = "SHARED FOLDER ID"; 
-        const folderResponse = await client.api(`sharedFolderId`).get();
-        const matchingFolder = folderResponse.value.find(folder => folder.name.endsWith(vat));
-
-        if (!matchingFolder) {
-            return res.status(404).json({ error:});
-        }
-
-        //Fetch the contents of the VAT folder
-        const vatFolderContents = await client.api(`Folderid}`).get();
-
-        //Find the "ΑΦΜ" folder
-        const targetFolder = vatFolderContents.value.find(folder => folder.name === "ΑΦΜ");
-
-        if (!targetFolder) {
-            return res.status(404).json({ error: });
-        }
-
-        //Fetch the contents of the "ΑΦΜ" folder
-        const targetFolderContents = await client.api(`Folder id}`).get();
-
-        //Find the file in the "ΑΦΜ" folder
-        const fileItem = targetFolderContents.value.find(item => item.name === fileName);
-
-        if (!fileItem) {
-            return res.status(404).json({ error: 'File not found in "ΑΦΜ"' });
-        }
-
-        //Get the download URL for the file
-        const downloadUrl = fileItem['@microsoft.graph.downloadUrl'];
-
-        if (!downloadUrl) {
-            return res.status(404).json({ FILE error:});
-        }
-
-        //Fetch the file data from OneDrive using Axios and stream it to the client
-        const encodedUrl = encodeURI(downloadUrl);
-        const fileResponse = await axios({
-            url: encodedUrl,
-            method: 'GET',
-            responseType: 'stream',
-        });
-
-        //Set appropriate headers for file download
-        const fileExtension = fileName.split('.').pop().toLowerCase();
-        let contentType = fileResponse.headers['content-type'] || 'application/octet-stream';
-
-        if (fileExtension === 'pdf') {
-            res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-            contentType = 'application/pdf';
-        } else {
-            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-        }
-
-        res.setHeader('Content-Type', contentType);
-
-        
-        fileResponse.data.pipe(res);
-
-    } catch (error) {
-        console.error('Error downloading file from OneDrive:', error);
-        return next(error);
-    }
-});
 
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
