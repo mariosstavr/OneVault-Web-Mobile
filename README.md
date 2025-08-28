@@ -37,6 +37,8 @@ Email: Nodemailer (SMTP)
 
 File Uploads: Multer (with file validation)
 
+WebView Ready: Backend endpoints and file operations designed for mobile WebView integration.
+
 🔒 Security Considerations:
 Cookies are HTTP-only and optionally secure (for production).
 
